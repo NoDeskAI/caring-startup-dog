@@ -36,23 +36,87 @@ allowed-tools: Bash, Feishu
 
 ### 首次初始化
 
-1. 创建 `~/.创业狗/` 目录
-2. 在用户飞书空间创建多维表格"创业狗状态记录"，包含以下字段：
-   - `user_id`（文本）、`user_name`（文本）、`timestamp`（日期）
-   - `status_emoji`（文本）、`dog_state`（文本）
-   - `msg_count`（数字）、`emotion_score`（数字）、`active_hours`（数字）
-   - `work_summary`（文本）、`is_public`（复选框，默认 false）
-   - `detail`（文本）
-3. 保存表 ID 到 `~/.创业狗/config.json`：
-   ```json
-   {
-     "bitable_app_token": "<app_token>",
-     "bitable_table_id": "<table_id>",
-     "feishu_user_id": "<user_id>",
-     "check_interval_hours": 1,
-     "ask_interval_hours": 2
-   }
-   ```
+按以下顺序**全部**执行，任何步骤失败都应向用户报告并停止。
+
+#### Step 1: 创建数据目录
+
+```bash
+mkdir -p ~/.创业狗
+```
+
+#### Step 2: 安装 Cursor / Claude Code Hooks
+
+运行 Skill 自带的安装脚本，将编码活动自动记录到 `~/.创业狗/activity.jsonl`：
+
+```bash
+bash "$(dirname "$0")/../scripts/install-hooks.sh"
+```
+
+安装后验证：
+- 检查 `~/.cursor/hooks.json` 中包含 `activity-logger.sh`
+- 检查 `~/.claude/settings.json` 中包含 `activity-logger.sh`
+
+如果用户未安装 Cursor 或 Claude Code，对应项跳过即可，不影响整体功能。
+
+#### Step 3: 创建飞书多维表格
+
+在用户飞书空间创建多维表格"创业狗状态记录"，包含以下字段：
+- `user_id`（文本）、`user_name`（文本）、`timestamp`（日期）
+- `status_emoji`（文本）、`dog_state`（文本）
+- `msg_count`（数字）、`emotion_score`（数字）、`active_hours`（数字）
+- `work_summary`（文本）、`is_public`（复选框，默认 false）
+- `detail`（文本）
+
+#### Step 4: 保存配置
+
+将表 ID 和用户信息保存到 `~/.创业狗/config.json`：
+
+```json
+{
+  "bitable_app_token": "<app_token>",
+  "bitable_table_id": "<table_id>",
+  "feishu_user_id": "<user_id>",
+  "check_interval_hours": 1,
+  "ask_interval_hours": 2
+}
+```
+
+#### Step 5: 配置 Cron 定时任务
+
+通过 OpenClaw 的 Cron 机制注册两个定时任务：
+
+```
+# 每小时整点：执行完整状态检测
+0 * * * *  → 执行本 Skill 的"操作流程 A"
+
+# 每 5 分钟：检查用户反馈（轻量）
+*/5 * * * *  → 检查 ~/.创业狗/user-response.json 是否有未处理的反馈
+              如有，执行本 Skill 的"操作流程 B"
+```
+
+**具体方式：** 使用 OpenClaw 提供的 Cron API 或配置文件来注册。如果 OpenClaw 暂不支持细粒度 Cron，则将"每 5 分钟检查反馈"合并到心跳检查中。
+
+#### Step 6: 安装桌面宠物（推荐）
+
+运行 Skill 自带的桌面宠物安装脚本：
+
+```bash
+bash "$(dirname "$0")/../scripts/install-desktop-pet.sh"
+```
+
+此脚本会自动从 GitHub Releases (https://github.com/NoDeskAI/caring-startup-dog/releases) 下载最新的 macOS 桌面宠物应用并安装到 `/Applications`。
+
+**要求：** macOS + Apple Silicon (M1/M2/M3/M4)。如果用户环境不满足，跳过此步骤并告知用户。
+
+#### Step 7: 验证
+
+初始化完成后，依次验证：
+1. `~/.创业狗/config.json` 存在且字段完整
+2. `~/.cursor/hooks.json` 或 `~/.claude/settings.json` 至少有一个包含 `activity-logger.sh`
+3. Cron 任务已注册
+4. `/Applications/创业狗.app` 存在（如果执行了 Step 6）
+
+全部通过后告诉用户："创业狗初始化完成！你的像素狗已准备就绪。"
 
 ## 操作流程 A：Cron 每小时触发
 
