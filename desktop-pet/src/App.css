@@ -1,5 +1,39 @@
+@font-face {
+  font-family: 'Zpix';
+  src: url('/fonts/zpix.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('/fonts/Silkscreen-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('/fonts/Silkscreen-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   background: transparent;
+  --pixel-font: 'Zpix', 'Silkscreen', monospace;
+  --pixel-bg: #f5e1c0;
+  --pixel-bg-dark: #e8c896;
+  --pixel-border: #8b5e34;
+  --pixel-border-dark: #5c3a1e;
+  --pixel-text: #3d2b1f;
+  --pixel-text-light: #6b4c30;
+  --pixel-accent: #d4a04a;
+  --pixel-shadow: 0 4px 0 #5c3a1e;
+  --pixel-radius: 2px;
 }
 
 html, body, #root {
@@ -9,6 +43,8 @@ html, body, #root {
   height: 450px;
   overflow: hidden;
   background: transparent;
+  font-family: var(--pixel-font);
+  image-rendering: pixelated;
 }
 
 .app-container {
@@ -21,4 +57,41 @@ html, body, #root {
 
 canvas {
   background: transparent !important;
+}
+
+.pixel-box {
+  background: var(--pixel-bg);
+  border: 3px solid var(--pixel-border);
+  outline: 2px solid var(--pixel-border-dark);
+  outline-offset: 1px;
+  box-shadow: var(--pixel-shadow);
+  font-family: var(--pixel-font);
+  color: var(--pixel-text);
+  image-rendering: pixelated;
+}
+
+.pixel-btn {
+  font-family: var(--pixel-font);
+  background: var(--pixel-bg-dark);
+  border: 2px solid var(--pixel-border);
+  color: var(--pixel-text);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 11px;
+  image-rendering: pixelated;
+  transition: none;
+}
+
+.pixel-btn:hover {
+  background: var(--pixel-accent);
+  color: #fff;
+}
+
+.pixel-btn:active {
+  transform: translateY(1px);
+}
+
+.pixel-btn.selected {
+  background: var(--pixel-border);
+  color: #fff;
 }

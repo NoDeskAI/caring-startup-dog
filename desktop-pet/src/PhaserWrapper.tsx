@@ -16,7 +16,6 @@ export function PhaserWrapper() {
   const dogColor = useDogStore((s) => s.dogColor);
   const setShowStatusBubble = useDogStore((s) => s.setShowStatusBubble);
   const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
-  const showMoodSlider = useDogStore((s) => s.showMoodSlider);
   const setShowSkinMenu = useDogStore((s) => s.setShowSkinMenu);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useDogStore } from "../store/dogStore";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { homeDir } from "@tauri-apps/api/path";
@@ -5,16 +6,15 @@ import { logMood } from "../db";
 
 interface Choice {
   label: string;
-  emoji: string;
   userMood: number;
   value: string;
   emotionScore: number;
 }
 
 const CHOICES: Choice[] = [
-  { label: "动力满满", emoji: "💪", userMood: 5, value: "energetic", emotionScore: 1.0 },
-  { label: "有一点累", emoji: "😅", userMood: 2, value: "a_bit_tired", emotionScore: -0.3 },
-  { label: "非常疲惫", emoji: "😫", userMood: 1, value: "exhausted", emotionScore: -0.8 },
+  { label: "动力满满!", userMood: 5, value: "energetic", emotionScore: 1.0 },
+  { label: "有一点累", userMood: 2, value: "a_bit_tired", emotionScore: -0.3 },
+  { label: "非常疲惫", userMood: 1, value: "exhausted", emotionScore: -0.8 },
 ];
 
 export function AskPanel() {
@@ -22,6 +22,22 @@ export function AskPanel() {
   const setShowAskPanel = useDogStore((s) => s.setShowAskPanel);
   const setUserMood = useDogStore((s) => s.setUserMood);
   const energy = useDogStore((s) => s.energy);
+
+  useEffect(() => {
+    if (!showAskPanel) return;
+    const dismiss = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-ask-panel]")) return;
+      setShowAskPanel(false);
+    };
+    const timer = setTimeout(() => {
+      window.addEventListener("pointerdown", dismiss);
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", dismiss);
+    };
+  }, [showAskPanel, setShowAskPanel]);
 
   if (!showAskPanel) return null;
 
@@ -61,78 +77,39 @@ export function AskPanel() {
 
   return (
     <div
+      data-ask-panel
+      className="pixel-box"
       style={{
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
         top: 10,
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderRadius: 12,
         padding: "10px 12px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
         zIndex: 300,
-        width: 170,
-        fontFamily: '"Courier New", monospace',
+        width: 160,
+        textAlign: "center",
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: "bold",
-          textAlign: "center",
-          marginBottom: 8,
-          color: "#333",
-        }}
-      >
-        你的狗累了吗？
+      <div style={{ fontSize: 11, fontWeight: "bold", marginBottom: 8 }}>
+        你的狗累了吗?
       </div>
       {CHOICES.map((c) => (
         <button
           key={c.value}
+          className="pixel-btn"
           onClick={() => handleChoice(c)}
           style={{
             display: "block",
             width: "100%",
-            padding: "6px 8px",
-            marginBottom: 4,
-            border: "2px solid #e0d4c0",
-            borderRadius: 8,
-            backgroundColor: "#fff8dc",
-            cursor: "pointer",
-            fontSize: 12,
-            fontFamily: "inherit",
+            padding: "5px 8px",
+            marginBottom: 3,
+            fontSize: 11,
             textAlign: "center",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#f0e6c8";
-            e.currentTarget.style.transform = "scale(1.03)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#fff8dc";
-            e.currentTarget.style.transform = "scale(1)";
           }}
         >
-          {c.emoji} {c.label}
+          {c.label}
         </button>
       ))}
-      <button
-        onClick={() => setShowAskPanel(false)}
-        style={{
-          display: "block",
-          width: "100%",
-          padding: "4px",
-          marginTop: 4,
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          fontSize: 10,
-          color: "#999",
-          fontFamily: "inherit",
-        }}
-      >
-        稍后再说
-      </button>
     </div>
   );
 }

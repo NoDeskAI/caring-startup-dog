@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDogStore } from "../store/dogStore";
 import { logMood } from "../db";
 import { MOOD_TO_STATE } from "../config/dog-states";
@@ -7,15 +7,15 @@ interface MoodLevel {
   value: number;
   score: number;
   label: string;
-  emoji: string;
+  icon: string;
 }
 
 const MOOD_LEVELS: MoodLevel[] = [
-  { value: 1, score: -1.0, label: "非常差", emoji: "😫" },
-  { value: 2, score: -0.5, label: "不太好", emoji: "😔" },
-  { value: 3, score: 0.0, label: "一般", emoji: "😐" },
-  { value: 4, score: 0.5, label: "还不错", emoji: "😊" },
-  { value: 5, score: 1.0, label: "很好", emoji: "😄" },
+  { value: 1, score: -1.0, label: "很差", icon: ">_<" },
+  { value: 2, score: -0.5, label: "不太好", icon: "T_T" },
+  { value: 3, score: 0.0, label: "一般", icon: "-_-" },
+  { value: 4, score: 0.5, label: "还行", icon: "^_^" },
+  { value: 5, score: 1.0, label: "很好", icon: "^o^" },
 ];
 
 export function MoodSlider() {
@@ -23,9 +23,24 @@ export function MoodSlider() {
   const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
   const setUserMood = useDogStore((s) => s.setUserMood);
   const energy = useDogStore((s) => s.energy);
-  const dogState = useDogStore((s) => s.dogState);
   const [sliderValue, setSliderValue] = useState(3);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!showMoodSlider) return;
+    const dismiss = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-mood-panel]")) return;
+      setShowMoodSlider(false);
+    };
+    const timer = setTimeout(() => {
+      window.addEventListener("pointerdown", dismiss);
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", dismiss);
+    };
+  }, [showMoodSlider, setShowMoodSlider]);
 
   const currentMood = MOOD_LEVELS[sliderValue - 1];
 
@@ -57,141 +72,88 @@ export function MoodSlider() {
 
   return (
     <div
+      data-mood-panel
+      className="pixel-box"
       style={{
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
         top: 10,
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderRadius: 14,
-        padding: "14px 18px 10px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+        padding: "10px 14px 8px",
         zIndex: 300,
-        width: 260,
-        fontFamily: '"Courier New", monospace',
+        width: 200,
+        textAlign: "center",
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: "bold",
-          textAlign: "center",
-          marginBottom: 10,
-          color: "#333",
-        }}
-      >
-        现在心情怎么样？
+      <div style={{ fontSize: 11, fontWeight: "bold", marginBottom: 8 }}>
+        心情如何?
       </div>
 
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: 32,
-          lineHeight: 1,
-          marginBottom: 4,
-        }}
-      >
-        {currentMood.emoji}
+      <div style={{ fontSize: 18, lineHeight: 1, marginBottom: 2 }}>
+        {currentMood.icon}
       </div>
       <div
         style={{
-          textAlign: "center",
-          fontSize: 12,
-          color: "#666",
-          marginBottom: 10,
+          fontSize: 10,
+          color: "var(--pixel-text-light)",
+          marginBottom: 8,
         }}
       >
         {currentMood.label}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>😫</span>
-        <input
-          type="range"
-          min={1}
-          max={5}
-          step={1}
-          value={sliderValue}
-          onChange={(e) => setSliderValue(Number(e.target.value))}
-          style={{
-            flex: 1,
-            height: 6,
-            accentColor: "#e8a040",
-            cursor: "pointer",
-          }}
-        />
-        <span style={{ fontSize: 16 }}>😄</span>
-      </div>
-
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          padding: "0 22px",
-          marginTop: 2,
-          marginBottom: 10,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          marginBottom: 4,
         }}
       >
-        {[1, 2, 3, 4, 5].map((n) => (
-          <span
-            key={n}
+        {MOOD_LEVELS.map((m) => (
+          <button
+            key={m.value}
+            onClick={() => setSliderValue(m.value)}
             style={{
+              width: 28,
+              height: 22,
+              border:
+                sliderValue === m.value
+                  ? "2px solid var(--pixel-border)"
+                  : "2px solid transparent",
+              background:
+                sliderValue === m.value
+                  ? "var(--pixel-accent)"
+                  : "var(--pixel-bg-dark)",
+              color:
+                sliderValue === m.value ? "#fff" : "var(--pixel-text-light)",
+              fontFamily: "var(--pixel-font)",
               fontSize: 9,
-              color: sliderValue === n ? "#e8a040" : "#bbb",
-              fontWeight: sliderValue === n ? "bold" : "normal",
-              width: 8,
-              textAlign: "center",
+              cursor: "pointer",
+              padding: 0,
+              fontWeight: sliderValue === m.value ? "bold" : "normal",
             }}
           >
-            {n}
-          </span>
+            {m.value}
+          </button>
         ))}
       </div>
 
       <button
+        className="pixel-btn"
         onClick={handleSubmit}
         disabled={submitting}
         style={{
-          display: "block",
           width: "100%",
-          padding: "7px 0",
-          border: "2px solid #e0d4c0",
-          borderRadius: 8,
-          backgroundColor: "#fff8dc",
+          marginTop: 6,
+          padding: "5px 0",
+          fontSize: 11,
+          opacity: submitting ? 0.5 : 1,
           cursor: submitting ? "not-allowed" : "pointer",
-          fontSize: 12,
-          fontFamily: "inherit",
-          fontWeight: "bold",
-          color: "#8b6914",
-          transition: "all 0.15s",
-          opacity: submitting ? 0.6 : 1,
-        }}
-        onMouseEnter={(e) => {
-          if (!submitting) e.currentTarget.style.backgroundColor = "#f0e6c8";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "#fff8dc";
         }}
       >
-        记录
-      </button>
-
-      <button
-        onClick={() => setShowMoodSlider(false)}
-        style={{
-          display: "block",
-          width: "100%",
-          padding: "4px",
-          marginTop: 4,
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          fontSize: 10,
-          color: "#999",
-          fontFamily: "inherit",
-        }}
-      >
-        取消
+        {submitting ? "..." : "记录"}
       </button>
     </div>
   );

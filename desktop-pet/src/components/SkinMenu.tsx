@@ -30,29 +30,26 @@ export function SkinMenu() {
 
   return (
     <div
+      className="pixel-box"
       style={{
         position: "absolute",
         right: 10,
         bottom: 60,
-        backgroundColor: "rgba(255,255,255,0.95)",
-        borderRadius: 10,
         padding: "6px 0",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
         zIndex: 500,
-        minWidth: 130,
-        fontFamily: '"Courier New", monospace',
-        fontSize: 12,
+        minWidth: 120,
+        fontSize: 11,
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div
         style={{
-          padding: "4px 12px 6px",
+          padding: "4px 10px 6px",
           fontWeight: "bold",
-          color: "#666",
-          fontSize: 11,
-          borderBottom: "1px solid #eee",
+          fontSize: 10,
+          borderBottom: "2px solid var(--pixel-border)",
           marginBottom: 2,
+          color: "var(--pixel-text-light)",
         }}
       >
         选择皮肤
@@ -65,24 +62,28 @@ export function SkinMenu() {
             setVisible(false);
           }}
           style={{
-            padding: "5px 12px",
+            padding: "4px 10px",
             cursor: "pointer",
             backgroundColor:
-              dogColor === skin.id ? "#e8f0fe" : "transparent",
-            color: dogColor === skin.id ? "#1a73e8" : "#333",
+              dogColor === skin.id
+                ? "var(--pixel-accent)"
+                : "transparent",
+            color:
+              dogColor === skin.id ? "#fff" : "var(--pixel-text)",
             fontWeight: dogColor === skin.id ? "bold" : "normal",
-            transition: "background 0.1s",
+            fontFamily: "var(--pixel-font)",
+            fontSize: 10,
           }}
           onMouseEnter={(e) => {
             if (dogColor !== skin.id)
-              e.currentTarget.style.backgroundColor = "#f5f5f5";
+              e.currentTarget.style.backgroundColor = "var(--pixel-bg-dark)";
           }}
           onMouseLeave={(e) => {
             if (dogColor !== skin.id)
               e.currentTarget.style.backgroundColor = "transparent";
           }}
         >
-          {dogColor === skin.id ? "● " : "○ "}
+          {dogColor === skin.id ? "> " : "  "}
           {String(skin.id).padStart(2, "0")} {skin.name}
         </div>
       ))}
