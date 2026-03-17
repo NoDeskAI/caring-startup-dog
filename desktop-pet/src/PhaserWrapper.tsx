@@ -15,7 +15,10 @@ export function PhaserWrapper() {
   const dogState = useDogStore((s) => s.dogState);
   const dogColor = useDogStore((s) => s.dogColor);
   const setShowStatusBubble = useDogStore((s) => s.setShowStatusBubble);
+  const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
+  const showMoodSlider = useDogStore((s) => s.showMoodSlider);
   const setShowSkinMenu = useDogStore((s) => s.setShowSkinMenu);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
@@ -33,9 +36,23 @@ export function PhaserWrapper() {
       render: { pixelArt: true },
     });
 
+    game.events.on("dog-hover-start", () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = setTimeout(() => {
+        setShowStatusBubble(true);
+      }, 300);
+    });
+
+    game.events.on("dog-hover-end", () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+      setShowStatusBubble(false);
+    });
+
     game.events.on("dog-clicked", () => {
-      setShowStatusBubble(true);
-      setTimeout(() => setShowStatusBubble(false), 5000);
+      setShowMoodSlider(true);
     });
 
     game.events.on("dog-rightclick", () => {
@@ -53,7 +70,7 @@ export function PhaserWrapper() {
       gameRef.current = null;
       sceneRef.current = null;
     };
-  }, [setShowStatusBubble, setShowSkinMenu]);
+  }, [setShowStatusBubble, setShowMoodSlider, setShowSkinMenu]);
 
   useEffect(() => {
     if (sceneRef.current) sceneRef.current.playAnimation(dogState);

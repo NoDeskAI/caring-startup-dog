@@ -30,6 +30,7 @@ interface DogStore {
   comfortMessage: ComfortMessage | null;
   showAskPanel: boolean;
   showStatusBubble: boolean;
+  showMoodSlider: boolean;
   showSkinMenu: boolean;
   dogColor: number;
 
@@ -38,6 +39,7 @@ interface DogStore {
   setComfortMessage: (msg: ComfortMessage | null) => void;
   setShowAskPanel: (show: boolean) => void;
   setShowStatusBubble: (show: boolean) => void;
+  setShowMoodSlider: (show: boolean) => void;
   setShowSkinMenu: (show: boolean) => void;
   setDogColor: (color: number) => void;
 }
@@ -48,6 +50,7 @@ export const useDogStore = create<DogStore>((set) => ({
   comfortMessage: null,
   showAskPanel: false,
   showStatusBubble: false,
+  showMoodSlider: false,
   showSkinMenu: false,
   dogColor: DEFAULT_DOG_COLOR,
 
@@ -56,6 +59,7 @@ export const useDogStore = create<DogStore>((set) => ({
   setComfortMessage: (msg) => set({ comfortMessage: msg }),
   setShowAskPanel: (show) => set({ showAskPanel: show }),
   setShowStatusBubble: (show) => set({ showStatusBubble: show }),
+  setShowMoodSlider: (show) => set({ showMoodSlider: show }),
   setShowSkinMenu: (show) => set({ showSkinMenu: show }),
   setDogColor: (color) => set({ dogColor: color }),
 }));

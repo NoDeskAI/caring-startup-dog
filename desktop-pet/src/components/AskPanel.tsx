@@ -1,6 +1,7 @@
 import { useDogStore } from "../store/dogStore";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { homeDir } from "@tauri-apps/api/path";
+import { logMood } from "../db";
 import type { DogStateName } from "../config/dog-states";
 
 interface Choice {
@@ -8,17 +9,13 @@ interface Choice {
   emoji: string;
   state: DogStateName;
   value: string;
+  emotionScore: number;
 }
 
 const CHOICES: Choice[] = [
-  { label: "动力满满", emoji: "💪", state: "energetic", value: "energetic" },
-  {
-    label: "有一点累",
-    emoji: "😅",
-    state: "a_bit_tired",
-    value: "a_bit_tired",
-  },
-  { label: "非常疲惫", emoji: "😫", state: "exhausted", value: "exhausted" },
+  { label: "动力满满", emoji: "💪", state: "energetic", value: "energetic", emotionScore: 1.0 },
+  { label: "有一点累", emoji: "😅", state: "a_bit_tired", value: "a_bit_tired", emotionScore: -0.3 },
+  { label: "非常疲惫", emoji: "😫", state: "exhausted", value: "exhausted", emotionScore: -0.8 },
 ];
 
 export function AskPanel() {
@@ -31,6 +28,17 @@ export function AskPanel() {
   async function handleChoice(choice: Choice) {
     setDogState(choice.state);
     setShowAskPanel(false);
+
+    try {
+      await logMood({
+        source: "ask_response",
+        dog_state: choice.state,
+        emotion_score: choice.emotionScore,
+        emotion_label: choice.label,
+      });
+    } catch (err) {
+      console.error("Failed to log mood:", err);
+    }
 
     try {
       const home = await homeDir();

@@ -5,6 +5,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_sql::Builder::new().build())
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             if let Ok(Some(monitor)) = window.current_monitor() {

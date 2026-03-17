@@ -28,16 +28,14 @@ export class DogScene extends Phaser.Scene {
   private loadAssets() {
     let needsLoad = false;
 
-    for (let i = 0; i <= 9; i++) {
-      const key = `dog_${String(i).padStart(2, "0")}`;
-      if (!this.textures.exists(key)) {
-        this.load.spritesheet(
-          key,
-          `sprites/${String(i).padStart(2, "0")}.png`,
-          { frameWidth: FRAME_WIDTH, frameHeight: FRAME_HEIGHT }
-        );
-        needsLoad = true;
-      }
+    const currentKey = this.getSpriteKey();
+    if (!this.textures.exists(currentKey)) {
+      this.load.spritesheet(
+        currentKey,
+        `sprites/${String(this.dogColor).padStart(2, "0")}.png`,
+        { frameWidth: FRAME_WIDTH, frameHeight: FRAME_HEIGHT }
+      );
+      needsLoad = true;
     }
 
     if (!this.textures.exists("emote_bored")) {
@@ -66,9 +64,7 @@ export class DogScene extends Phaser.Scene {
     this.assetsLoaded = true;
     this.children.removeAll();
 
-    for (let i = 0; i <= 9; i++) {
-      this.createAnimationsForColor(i);
-    }
+    this.createAnimationsForColor(this.dogColor);
 
     const cx = this.cameras.main.width / 2;
     const cy = this.cameras.main.height - 80;
@@ -79,6 +75,14 @@ export class DogScene extends Phaser.Scene {
       .setInteractive();
 
     this.playAnimation(this.currentState);
+
+    this.dog.on("pointerover", () => {
+      this.game.events.emit("dog-hover-start");
+    });
+
+    this.dog.on("pointerout", () => {
+      this.game.events.emit("dog-hover-end");
+    });
 
     this.dog.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (pointer.rightButtonDown()) {
@@ -146,7 +150,23 @@ export class DogScene extends Phaser.Scene {
     if (color === this.dogColor) return;
     this.dogColor = color;
     if (!this.assetsLoaded || !this.dog) return;
-    this.playAnimation(this.currentState);
+
+    const key = this.getSpriteKey();
+    if (!this.textures.exists(key)) {
+      this.load.spritesheet(
+        key,
+        `sprites/${String(color).padStart(2, "0")}.png`,
+        { frameWidth: FRAME_WIDTH, frameHeight: FRAME_HEIGHT }
+      );
+      this.load.once("complete", () => {
+        this.createAnimationsForColor(color);
+        this.playAnimation(this.currentState);
+      });
+      this.load.start();
+    } else {
+      this.createAnimationsForColor(color);
+      this.playAnimation(this.currentState);
+    }
   }
 
   private updateBubble(state: DogStateName) {
