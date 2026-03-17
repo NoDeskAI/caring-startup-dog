@@ -1,0 +1,10 @@
+{
+  "slug": "caring-startup-dog",
+  "version": "1.0.0",
+  "publishedAt": 1742198400000,
+  "description": "关爱创业狗——自动检测用户工作状态，通过桌面宠物反映健康状况，私聊推送关爱消息",
+  "author": "shayne",
+  "tags": ["feishu", "wellness", "desktop-pet", "emotion-analysis", "work-life-balance"],
+  "minOpenClawVersion": "2026.3",
+  "skillLevel": 2
+}
