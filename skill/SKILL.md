@@ -190,13 +190,38 @@ merged = merge_overlapping(intervals)
 active_hours = calculate_continuous_hours(merged, gap_threshold=30*60)
 ```
 
-### Step 4: 决定狗狗状态
+### Step 4: 计算能量值
 
-根据连续工作时长映射狗狗基础动画：
+根据多维信号计算用户的能量值（0-100），能量越低代表疲劳度越高：
 
-- `active_hours < 1` → `running`（状态好，在冲）
-- `1 <= active_hours < 3` → `walking`（开始疲劳）
-- `active_hours >= 3` → `tired`（需要休息）
+```python
+# 疲劳积分公式
+fatigue_score = min(100,
+    continuous_work_hours * 12      # 每连续工作 1h 消耗 12 点
+    + (msg_count_1h / 10)           # 消息密度贡献
+    + (prompt_count_1h / 5)         # 编码密度贡献
+    + late_night_penalty            # 22:00-08:00 之间工作额外 +15
+    - rest_recovery                 # 检测到 30min+ 无活动，恢复 20 点
+)
+
+energy = max(0, 100 - fatigue_score)
+```
+
+**疲劳度是一天内累加的**，不是每小时重置。需要读取上一次 `status.json` 中的 `energy` 值作为基数：
+
+- 如果距离上次更新不超过 2h：在上次 energy 基础上继续消耗
+- 如果超过 2h 无记录：视为用户休息了，energy 恢复到 min(上次energy + 30, 100)
+- 每天首次检测（00:00-06:00 无记录）：重置 energy = 100
+
+**能量阈值与桌面宠物行为映射**（桌面宠物端自行 resolve）：
+
+| energy | 最高可用动画 | 含义 |
+|--------|------------|------|
+| >= 70  | energetic  | 精力充沛 |
+| 50-69  | running    | 状态不错 |
+| 30-49  | walking    | 开始疲劳 |
+| 15-29  | a_bit_tired | 比较累了 |
+| < 15   | exhausted  | 非常疲惫 |
 
 ### Step 5: LLM 情绪分析
 
@@ -214,33 +239,32 @@ active_hours = calculate_continuous_hours(merged, gap_threshold=30*60)
 
 ```json
 {
-  "user": "用户名",
+  "energy": 65,
   "last_update": "2026-03-17T15:00:00+08:00",
-  "dog_state": "walking",
   "emotion_score": -0.2,
-  "emotion_label": "neutral",
   "msg_count_1h": 35,
   "prompt_count_1h": 12,
   "active_hours": 2.5,
-  "alert_level": "info",
   "work_summary": "处理了 2 个 PR review，修复了用户登录超时的 bug，和产品经理讨论了新功能排期",
-  "stress_signals": [],
-  "message": "你正在高效工作中"
+  "comfort_trigger": false
 }
 ```
 
-**飞书多维表格：** 追加一条新记录。
+**重要：** `energy` 是核心字段，桌面宠物读取此值结合用户自报心情来决定狗的最终动画。不再直接写 `dog_state`——动画由桌面宠物端根据双轴模型自行 resolve。
+
+**飞书多维表格：** 追加一条新记录（可选，每日同步即可）。
 
 ### Step 7: 触发关爱消息
 
 当满足以下任一条件时，通过飞书私聊发送关爱消息：
 
-- `active_hours >= 4`（持续工作过久）
-- `emotion_score < -0.4`（明显负面情绪）
-- `msg_count + prompt_count > 60`（交互量过大）
-- `negative_received` 不为空（收到他人负面消息）
+- `energy < 30`（能量过低，用户处于疲惫状态）
+- `emotion_score < -0.4`（LLM 检测到明显负面情绪）
+- `energy` 从上次的 50+ 降到了 30 以下（急剧下降，提前预警）
 
-关爱消息使用 LLM 情绪分析中返回的 `comfort_message` 字段。
+关爱消息使用 LLM 情绪分析中返回的 `comfort_message` 字段。同时在 `status.json` 中设置 `"comfort_trigger": true`。
+
+**注意：** 不强制用户休息，仅出言安慰。创业者知道自己累，狗狗只是陪伴和提醒。
 
 ### Step 8: 清理已处理数据
 
@@ -333,26 +357,68 @@ fi
 ## Cron 配置
 
 ```
-# 每小时执行状态检测
+# 每小时整点：完整状态检测（拉飞书消息 + LLM 分析 + 计算能量）
 0 * * * * openclaw skill run caring-startup-dog --flow=cron
 
-# 每 5 分钟检查用户反馈（轻量级，只检测文件是否存在）
+# 每 15 分钟：轻量能量更新（只读 activity.jsonl，快速更新 energy，不调 LLM）
+*/15 * * * * openclaw skill run caring-startup-dog --flow=energy-update
+
+# 每 5 分钟：检查用户反馈（只检测文件是否存在）
 */5 * * * * openclaw skill run caring-startup-dog --flow=response-check
 ```
 
-## 状态 → 动画映射
+### 操作流程 C：每 15 分钟轻量能量更新
 
-供桌面宠物和 Skill 共用的状态编码：
+这是一个极轻量的流程，不调用飞书 API 和 LLM，仅：
 
-| dog_state   | 含义         | Benvictus 动画 | 气泡叠加 |
-|-------------|-------------|----------------|---------|
-| `running`   | 状态好在冲   | Run (row 3)    | 无       |
-| `walking`   | 开始疲劳     | Walk (row 4)   | 无       |
-| `tired`     | 需要休息     | Sleep (row 8)  | ZZZ     |
-| `energetic` | 动力满满     | Stand (row 7)  | heart   |
-| `a_bit_tired` | 有一点累   | Sit (row 1)    | 无       |
-| `exhausted` | 非常疲惫     | Lie Down (row 2) | ZZZ   |
-| `asking`    | 等待用户反馈 | Idle (row 0)   | ?       |
+1. 读取 `~/.创业狗/activity.jsonl` 最近 15 分钟的条目
+2. 读取当前 `~/.创业狗/status.json` 的 `energy` 值
+3. 根据编码活动量（prompt 数、session 时长）微调 energy：
+   - 每个 prompt 消耗 0.5 点
+   - 每个活跃的 15min 区间消耗 3 点
+   - 15min 内无任何活动 → energy 恢复 5 点（最高 100）
+4. 写回 `status.json`（只更新 `energy` 和 `last_update` 字段）
+
+## 双轴模型：能量 + 心情
+
+桌面宠物的最终动画由两个轴共同决定：
+
+- **用户心情**（1-5 滑动条）：用户主观自报，决定狗"想要"的动画
+- **能量值**（0-100，Skill 计算）：客观工作疲劳，决定狗"能达到"的最高动画
+
+**最终动画 = min(心情对应动画, 能量允许的最高动画)**
+
+### 心情 → 期望动画映射
+
+| 心情档位 | 期望动画 |
+|---------|---------|
+| 5 (很好) | energetic |
+| 4 (还不错) | running |
+| 3 (一般) | walking |
+| 2 (不太好) | a_bit_tired |
+| 1 (非常差) | exhausted |
+
+### 能量 → 动画上限
+
+| energy 范围 | 最高可用动画 | 活力等级 |
+|-----------|------------|---------|
+| >= 70     | energetic  | 5       |
+| 50-69     | running    | 4       |
+| 30-49     | walking    | 3       |
+| 15-29     | a_bit_tired | 2      |
+| < 15      | exhausted  | 1       |
+
+### 动画编码表
+
+| dog_state   | 含义         | Benvictus 动画   | 活力等级 | 能量阈值 |
+|-------------|-------------|------------------|---------|---------|
+| `energetic` | 动力满满     | Stand (row 7)    | 5       | >= 70   |
+| `running`   | 状态好在冲   | Run (row 3)      | 4       | >= 50   |
+| `walking`   | 有点累了     | Walk (row 4)     | 3       | >= 30   |
+| `a_bit_tired` | 比较累了   | Sit (row 1)      | 2       | >= 15   |
+| `exhausted` | 非常疲惫     | Lie Down (row 2) | 1       | 任何     |
+| `tired`     | 该休息了     | Sleep (row 8)    | 1       | 任何     |
+| `asking`    | 等待用户反馈 | Idle (row 0)     | 特殊     | 任何     |
 
 ## 错误处理
 

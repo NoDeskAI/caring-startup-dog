@@ -1,28 +1,29 @@
 import { useState, useCallback } from "react";
 import { useDogStore } from "../store/dogStore";
 import { logMood } from "../db";
-import type { DogStateName } from "../config/dog-states";
+import { MOOD_TO_STATE } from "../config/dog-states";
 
 interface MoodLevel {
   value: number;
   score: number;
   label: string;
   emoji: string;
-  dogState: DogStateName;
 }
 
 const MOOD_LEVELS: MoodLevel[] = [
-  { value: 1, score: -1.0, label: "非常差", emoji: "😫", dogState: "exhausted" },
-  { value: 2, score: -0.5, label: "不太好", emoji: "😔", dogState: "a_bit_tired" },
-  { value: 3, score: 0.0, label: "一般", emoji: "😐", dogState: "walking" },
-  { value: 4, score: 0.5, label: "还不错", emoji: "😊", dogState: "running" },
-  { value: 5, score: 1.0, label: "很好", emoji: "😄", dogState: "energetic" },
+  { value: 1, score: -1.0, label: "非常差", emoji: "😫" },
+  { value: 2, score: -0.5, label: "不太好", emoji: "😔" },
+  { value: 3, score: 0.0, label: "一般", emoji: "😐" },
+  { value: 4, score: 0.5, label: "还不错", emoji: "😊" },
+  { value: 5, score: 1.0, label: "很好", emoji: "😄" },
 ];
 
 export function MoodSlider() {
   const showMoodSlider = useDogStore((s) => s.showMoodSlider);
   const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
-  const setDogState = useDogStore((s) => s.setDogState);
+  const setUserMood = useDogStore((s) => s.setUserMood);
+  const energy = useDogStore((s) => s.energy);
+  const dogState = useDogStore((s) => s.dogState);
   const [sliderValue, setSliderValue] = useState(3);
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,14 +34,16 @@ export function MoodSlider() {
     setSubmitting(true);
 
     const mood = MOOD_LEVELS[sliderValue - 1];
-    setDogState(mood.dogState);
+    setUserMood(sliderValue);
 
+    const resolvedState = MOOD_TO_STATE[sliderValue] ?? "walking";
     try {
       await logMood({
         source: "user_click",
-        dog_state: mood.dogState,
+        dog_state: resolvedState,
         emotion_score: mood.score,
         emotion_label: mood.label,
+        energy,
       });
     } catch (err) {
       console.error("Failed to log mood:", err);
@@ -48,7 +51,7 @@ export function MoodSlider() {
 
     setSubmitting(false);
     setShowMoodSlider(false);
-  }, [sliderValue, submitting, setDogState, setShowMoodSlider]);
+  }, [sliderValue, submitting, setUserMood, setShowMoodSlider, energy]);
 
   if (!showMoodSlider) return null;
 

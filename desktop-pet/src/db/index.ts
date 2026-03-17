@@ -19,6 +19,7 @@ export async function getDb(): Promise<Database> {
       dog_state TEXT NOT NULL,
       emotion_score REAL NOT NULL,
       emotion_label TEXT,
+      energy INTEGER,
       active_hours REAL,
       msg_count INTEGER,
       prompt_count INTEGER,
@@ -48,6 +49,7 @@ export async function logMood(params: {
   dog_state: string;
   emotion_score: number;
   emotion_label?: string;
+  energy?: number;
   active_hours?: number;
   msg_count?: number;
   prompt_count?: number;
@@ -56,13 +58,14 @@ export async function logMood(params: {
 }): Promise<void> {
   const d = await getDb();
   await d.execute(
-    `INSERT INTO mood_log (source, dog_state, emotion_score, emotion_label, active_hours, msg_count, prompt_count, work_summary, user_note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    `INSERT INTO mood_log (source, dog_state, emotion_score, emotion_label, energy, active_hours, msg_count, prompt_count, work_summary, user_note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       params.source,
       params.dog_state,
       params.emotion_score,
       params.emotion_label ?? null,
+      params.energy ?? null,
       params.active_hours ?? null,
       params.msg_count ?? null,
       params.prompt_count ?? null,
