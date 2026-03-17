@@ -13,7 +13,6 @@ export class DogScene extends Phaser.Scene {
   private bubble?: Phaser.GameObjects.Sprite;
   private currentState: DogStateName = "running";
   private dogColor: number = DEFAULT_DOG_COLOR;
-  private flipDirection = false;
   private assetsLoaded = false;
   private pointerDownTime = 0;
   private dragTimer: ReturnType<typeof setTimeout> | null = null;
@@ -104,14 +103,6 @@ export class DogScene extends Phaser.Scene {
       }
     });
 
-    this.time.addEvent({
-      delay: 8000,
-      callback: () => {
-        this.flipDirection = !this.flipDirection;
-        if (this.dog) this.dog.setFlipX(this.flipDirection);
-      },
-      loop: true,
-    });
   }
 
   private getSpriteKey(): string {
