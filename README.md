@@ -66,4 +66,4 @@ cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 
 ## 协议
 
-MIT
+[Apache License 2.0](LICENSE)
