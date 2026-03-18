@@ -12,9 +12,9 @@ interface Choice {
 }
 
 const CHOICES: Choice[] = [
-  { label: "动力满满!", userMood: 5, value: "energetic", emotionScore: 1.0 },
-  { label: "有一点累", userMood: 2, value: "a_bit_tired", emotionScore: -0.3 },
-  { label: "非常疲惫", userMood: 1, value: "exhausted", emotionScore: -0.8 },
+  { label: "状态好，在冲!", userMood: 5, value: "running", emotionScore: 1.0 },
+  { label: "节奏放缓一下", userMood: 3, value: "a_bit_tired", emotionScore: -0.2 },
+  { label: "动力积蓄中...", userMood: 1, value: "sleeping", emotionScore: -0.6 },
 ];
 
 export function AskPanel() {

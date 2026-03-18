@@ -36,6 +36,8 @@ interface DogStore {
   showStatusBubble: boolean;
   showMoodSlider: boolean;
   showSkinMenu: boolean;
+  showContextMenu: boolean;
+  showDailyReport: boolean;
   dogColor: number;
 
   setEnergy: (energy: number) => void;
@@ -47,6 +49,8 @@ interface DogStore {
   setShowStatusBubble: (show: boolean) => void;
   setShowMoodSlider: (show: boolean) => void;
   setShowSkinMenu: (show: boolean) => void;
+  setShowContextMenu: (show: boolean) => void;
+  setShowDailyReport: (show: boolean) => void;
   setDogColor: (color: number) => void;
 }
 
@@ -60,6 +64,8 @@ export const useDogStore = create<DogStore>((set, get) => ({
   showStatusBubble: false,
   showMoodSlider: false,
   showSkinMenu: false,
+  showContextMenu: false,
+  showDailyReport: false,
   dogColor: DEFAULT_DOG_COLOR,
 
   setEnergy: (energy) => {
@@ -85,5 +91,7 @@ export const useDogStore = create<DogStore>((set, get) => ({
   setShowStatusBubble: (show) => set({ showStatusBubble: show }),
   setShowMoodSlider: (show) => set({ showMoodSlider: show }),
   setShowSkinMenu: (show) => set({ showSkinMenu: show }),
+  setShowContextMenu: (show) => set({ showContextMenu: show }),
+  setShowDailyReport: (show) => set({ showDailyReport: show }),
   setDogColor: (color) => set({ dogColor: color }),
 }));

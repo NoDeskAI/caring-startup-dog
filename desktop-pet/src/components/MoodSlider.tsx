@@ -11,11 +11,11 @@ interface MoodLevel {
 }
 
 const MOOD_LEVELS: MoodLevel[] = [
-  { value: 1, score: -1.0, label: "很差", icon: ">_<" },
-  { value: 2, score: -0.5, label: "不太好", icon: "T_T" },
-  { value: 3, score: 0.0, label: "一般", icon: "-_-" },
-  { value: 4, score: 0.5, label: "还行", icon: "^_^" },
-  { value: 5, score: 1.0, label: "很好", icon: "^o^" },
+  { value: 1, score: -1.0, label: "充电中", icon: "u_u" },
+  { value: 2, score: -0.5, label: "缓一缓", icon: "-.-" },
+  { value: 3, score: 0.0, label: "还行", icon: "-_-" },
+  { value: 4, score: 0.5, label: "不错", icon: "^_^" },
+  { value: 5, score: 1.0, label: "在冲!", icon: "^o^" },
 ];
 
 export function MoodSlider() {

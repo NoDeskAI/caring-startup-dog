@@ -44,6 +44,65 @@ export async function getDb(): Promise<Database> {
   return db;
 }
 
+export interface MoodLogEntry {
+  id: number;
+  ts: string;
+  source: string;
+  dog_state: string;
+  emotion_score: number;
+  emotion_label: string | null;
+  energy: number | null;
+  work_summary: string | null;
+}
+
+export interface DailySummaryData {
+  count: number;
+  avg_emotion: number;
+  min_emotion: number;
+  max_emotion: number;
+  first_ts: string | null;
+  last_ts: string | null;
+}
+
+export async function getTodayMoodLogs(): Promise<MoodLogEntry[]> {
+  const d = await getDb();
+  const rows = await d.select<MoodLogEntry[]>(
+    `SELECT id, ts, source, dog_state, emotion_score, emotion_label, energy, work_summary
+     FROM mood_log
+     WHERE date(ts) = date('now','localtime')
+     ORDER BY ts ASC`
+  );
+  return rows;
+}
+
+export async function getTodaySummary(): Promise<DailySummaryData> {
+  const d = await getDb();
+  const rows = await d.select<DailySummaryData[]>(
+    `SELECT
+       COUNT(*) as count,
+       COALESCE(AVG(emotion_score), 0) as avg_emotion,
+       COALESCE(MIN(emotion_score), 0) as min_emotion,
+       COALESCE(MAX(emotion_score), 0) as max_emotion,
+       MIN(ts) as first_ts,
+       MAX(ts) as last_ts
+     FROM mood_log
+     WHERE date(ts) = date('now','localtime')`
+  );
+  return rows[0] ?? { count: 0, avg_emotion: 0, min_emotion: 0, max_emotion: 0, first_ts: null, last_ts: null };
+}
+
+export async function getRecentMoodLogs(hours: number): Promise<MoodLogEntry[]> {
+  const d = await getDb();
+  const rows = await d.select<MoodLogEntry[]>(
+    `SELECT id, ts, source, dog_state, emotion_score, emotion_label, energy, work_summary
+     FROM mood_log
+     WHERE ts >= datetime('now','localtime','-' || $1 || ' hours')
+     ORDER BY ts DESC`,
+    [hours]
+  );
+  return rows;
+}
+
 export async function logMood(params: {
   source: string;
   dog_state: string;

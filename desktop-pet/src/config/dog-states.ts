@@ -13,54 +13,45 @@ export const FRAME_WIDTH = 64;
 export const FRAME_HEIGHT = 48;
 
 export const DOG_STATES: Record<string, DogStateConfig> = {
-  energetic: {
-    row: 7,
-    frames: 6,
-    speed: 0,
-    bubble: "heart",
-    label: "动力满满！",
-    vitality: 5,
-    energyThreshold: 70,
-  },
   running: {
     row: 3,
     frames: 8,
     speed: 0,
+    bubble: "heart",
     label: "状态好，在冲！",
-    vitality: 4,
-    energyThreshold: 50,
+    vitality: 5,
+    energyThreshold: 70,
   },
   walking: {
     row: 4,
     frames: 8,
     speed: 0,
-    label: "有点累了…",
-    vitality: 3,
-    energyThreshold: 30,
+    label: "稳步推进中",
+    vitality: 4,
+    energyThreshold: 50,
   },
   a_bit_tired: {
     row: 1,
     frames: 6,
     speed: 0,
-    label: "有一点累",
-    vitality: 2,
-    energyThreshold: 15,
+    label: "节奏放缓一下",
+    vitality: 3,
+    energyThreshold: 30,
   },
-  exhausted: {
+  resting: {
     row: 2,
     frames: 6,
     speed: 0,
-    bubble: "zzz",
-    label: "非常疲惫",
-    vitality: 1,
-    energyThreshold: 0,
+    label: "动力积蓄中...",
+    vitality: 2,
+    energyThreshold: 15,
   },
-  tired: {
+  sleeping: {
     row: 8,
     frames: 4,
     speed: 0,
     bubble: "zzz",
-    label: "该休息了！",
+    label: "充电中，马上回来",
     vitality: 1,
     energyThreshold: 0,
   },
@@ -69,7 +60,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     frames: 6,
     speed: 0,
     bubble: "question",
-    label: "你的狗想问你…",
+    label: "你的狗想问你...",
     vitality: 0,
     energyThreshold: 0,
   },
@@ -78,20 +69,20 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
 export type DogStateName = keyof typeof DOG_STATES;
 
 export const MOOD_TO_STATE: Record<number, DogStateName> = {
-  1: "exhausted",
-  2: "a_bit_tired",
-  3: "walking",
-  4: "running",
-  5: "energetic",
+  1: "sleeping",
+  2: "resting",
+  3: "a_bit_tired",
+  4: "walking",
+  5: "running",
 };
 
 const VITALITY_STATES: DogStateName[] = [
-  "exhausted",
-  "exhausted",
+  "sleeping",
+  "sleeping",
+  "resting",
   "a_bit_tired",
   "walking",
   "running",
-  "energetic",
 ];
 
 function energyToMaxVitality(energy: number): number {
@@ -110,7 +101,7 @@ export function resolveDogState(
   const desiredVitality = DOG_STATES[desired]?.vitality ?? 3;
   const maxVitality = energyToMaxVitality(energy);
   if (desiredVitality <= maxVitality) return desired;
-  return VITALITY_STATES[maxVitality] ?? "exhausted";
+  return VITALITY_STATES[maxVitality] ?? "sleeping";
 }
 
 export const DEFAULT_DOG_COLOR = 5;

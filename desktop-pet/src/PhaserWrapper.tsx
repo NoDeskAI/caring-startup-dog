@@ -16,7 +16,7 @@ export function PhaserWrapper() {
   const dogColor = useDogStore((s) => s.dogColor);
   const setShowStatusBubble = useDogStore((s) => s.setShowStatusBubble);
   const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
-  const setShowSkinMenu = useDogStore((s) => s.setShowSkinMenu);
+  const setShowContextMenu = useDogStore((s) => s.setShowContextMenu);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function PhaserWrapper() {
     });
 
     game.events.on("dog-rightclick", () => {
-      setShowSkinMenu(true);
+      setShowContextMenu(true);
     });
 
     game.events.on("start-window-drag", () => {
@@ -69,7 +69,7 @@ export function PhaserWrapper() {
       gameRef.current = null;
       sceneRef.current = null;
     };
-  }, [setShowStatusBubble, setShowMoodSlider, setShowSkinMenu]);
+  }, [setShowStatusBubble, setShowMoodSlider, setShowContextMenu]);
 
   useEffect(() => {
     if (sceneRef.current) sceneRef.current.playAnimation(dogState);

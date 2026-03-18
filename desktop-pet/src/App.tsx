@@ -3,7 +3,8 @@ import { StatusBubble } from "./components/StatusBubble";
 import { ComfortBubble } from "./components/ComfortBubble";
 import { AskPanel } from "./components/AskPanel";
 import { MoodSlider } from "./components/MoodSlider";
-import { SkinMenu } from "./components/SkinMenu";
+import { ContextMenu } from "./components/ContextMenu";
+import { DailyReport } from "./components/DailyReport";
 import { useStateWatcher } from "./hooks/useStateWatcher";
 import "./App.css";
 
@@ -17,7 +18,8 @@ function App() {
       <ComfortBubble />
       <MoodSlider />
       <AskPanel />
-      <SkinMenu />
+      <ContextMenu />
+      <DailyReport />
     </div>
   );
 }
