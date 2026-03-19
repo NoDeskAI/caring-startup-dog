@@ -54,7 +54,9 @@
 
 ---
 
-## 交互机制
+## 功能一览
+
+### 桌面交互
 
 | 操作 | 效果 |
 |------|------|
@@ -62,22 +64,44 @@
 | **右键 → 摸摸头** | 从预生成 fun-pool 随机取一条趣味文案，零延迟（需求 B） |
 | **右键 → 在干嘛** | 调用 LLM 生成基于真实工作内容的伙伴式反馈（需求 A） |
 | **右键 → 今天的日记** | 当天叙事回顾 + 心情时间线 |
-| **右键 → 换皮肤** | 10 款像素狗皮肤 |
-| **悬停** | 显示 LLM 预生成的状态描述 |
-| **拖拽** | 移动狗的位置（4px 死区区分点击，屏幕边界约束） |
+| **右键 → 换皮肤** | 10 款像素狗皮肤，hover 预览锁定皮肤 |
+| **右键 → 修复连接** | 手动触发 cron 健康检查与修复 |
+| **悬停** | 显示 LLM 预生成的状态描述 + 连接指示灯 |
+| **拖拽** | 移动狗的位置（屏幕边界约束） |
+| **点击金币** | 收集金币 + LLM 文案气泡 |
+
+### 金币系统
+
+每小时 cron 完成后，桌面上弹跳掉落一枚像素金币。用户在线时点击收集，附带一段结合当前工作的文案。每 5 枚金币解锁 1 个新皮肤。
+
+金币不是 KPI —— 是时间的痕迹。不累积压力，离线时最多存 1 枚。
+
+### 飞书狗信
+
+每天 3 次随机时间（9:00-22:00，避开午休），狗通过飞书私聊给你写信：
+
+> "你的狗刚拜托我告诉你：我们刚才讨论排期讨论了好久，你推进了好多事情！要不要一起出去走走？"
+
+狗有自己的人格，不是 OpenClaw 的传声筒。
+
+### 日终日记
+
+每天 21:00 后自动推送一封狗视角的一天总结到飞书：
+
+> "你的狗写了今天的日记：上午一直在修前端问题，下午跟苏博文聊了很久排期。今天收集了 3 枚金币"
 
 ### 自动机制
 
 | 机制 | 频率 | 说明 |
 |------|------|------|
-| 主动询问 | 每 2 小时 | 弹窗问心情状态，选择后记入数据库 |
-| 数据采集 | 每 10 分钟 | 读取飞书消息计数 + 编码活动，更新 energy |
-| 完整分析 | 每 1 小时 | LLM 情绪分析 + 生成自言自语 + 刷新 fun-pool |
-| 连接指示 | 实时 | 左下角 OC/FS 状态灯（绿/黄/红） |
+| 数据采集 | 每 10 分钟 | 飞书消息计数 + 编码活动统计 + 狗信/日记触发检查 |
+| 完整分析 | 每 1 小时 | LLM 情绪分析 + 自言自语 + fun-pool 刷新 + 金币掉落 |
+| 主动询问 | 每 2 小时 | 弹窗问心情状态 |
+| 健康检测 | 每 15 分钟 | cron 心跳检查，过期自动修复 |
 
 ### 狗的动画
 
-完全由用户自报心情决定：
+完全由用户自报心情决定，无 energy 公式：
 
 | 心情 | 动画 | 标签 |
 |------|------|------|
@@ -86,6 +110,8 @@
 | 3 | 坐着 | 有点累了... |
 | 2 | 趴着 | 歇会儿... |
 | 1 | 睡觉 | zzZ... |
+
+工作数据（消息数、prompt 数、连续工作时长）+ 用户心情两个维度作为 LLM 上下文，让文案像了解你工作情况的朋友那样说话。
 
 ### 日期边界
 
@@ -97,13 +123,15 @@
 
 ```
 ~/.创业狗/
-├── status.json           # OpenClaw cron 输出（energy, 消息数, 工作摘要, hover_text）
+├── status.json           # cron 输出（消息数, 工作摘要, hover_text, coin_ready）
 ├── comfort-message.json  # LLM 生成的安慰/自言自语
 ├── fun-pool.json         # cron 预生成的 5 条趣味文案
+├── daily-schedule.json   # 当日狗信时间表 + 日记推送标记
+├── cron-heartbeat.json   # cron 执行心跳（各步骤成功/失败）
 ├── user-response.json    # 用户交互反馈
-├── activity.jsonl        # Cursor/Claude Code hooks 写入的编码活动
+├── activity.jsonl        # Cursor/Claude Code hooks 编码活动
 ├── config.json           # 飞书表 ID 等配置
-└── dog.db                # SQLite（心情记录 + 工作快照）
+└── dog.db                # SQLite（心情 + 工作快照 + 金币 + 皮肤解锁）
 ```
 
 三个数据源：
@@ -145,11 +173,12 @@ cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 ```
 ├── skill/              # OpenClaw Skill
 │   ├── SKILL.md        # Skill 定义与操作流程
-│   ├── prompts/        # LLM Prompt 模板
+│   ├── prompts/        # LLM Prompt 模板（情绪分析/安慰/狗信/日记）
 │   └── scripts/        # 安装脚本
 ├── desktop-pet/        # Tauri 桌面宠物源码
 │   ├── src/            # React + Phaser 前端
-│   └── src-tauri/      # Rust 后端（穿透、拖拽、光标检测）
+│   ├── src-tauri/      # Rust 后端（穿透、拖拽、光标检测）
+│   └── public/sprites/ # 像素狗皮肤 + 金币素材
 ├── hooks/              # Cursor/Claude Code Hooks
 └── docs/               # 产品文档与截图
 ```
@@ -157,8 +186,8 @@ cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 ## 技术栈
 
 - **Skill**: OpenClaw + 飞书 API + LLM
-- **桌面宠物**: Tauri v2 + React + Phaser 3 + Zustand + SQLite
-- **窗口交互**: cocoa/objc（macOS 原生 API） + screenX/Y 拖拽 + Rust 光标轮询
+- **桌面宠物**: Tauri v2 + React + Phaser 3 (WebGL) + Zustand + SQLite
+- **窗口交互**: cocoa/objc（macOS 原生 API） + setPointerCapture 拖拽 + Rust 全局光标轮询
 - **像素素材**: [Pixel Dogs by Benvictus](https://bfreddyberg.itch.io/pixel-dogs)
 - **像素字体**: Zpix（中文） + Silkscreen（英文）
 
