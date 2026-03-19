@@ -1,4 +1,4 @@
-# 关爱创业狗
+# 关爱创业狗 v0.2.0
 
 **一只像素狗，陪你创业。**
 
@@ -6,14 +6,16 @@
 
 <p align="center">
   <img src="docs/screenshots/comfort-bubble.png" width="320" />
-  <img src="docs/screenshots/context-menu.png" width="320" />
+  <img src="docs/screenshots/coin-drop.png" width="320" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/mood-slider.png" width="320" />
-  <img src="docs/screenshots/thinking.png" width="320" />
+  <img src="docs/screenshots/fun-text.png" width="320" />
+  <img src="docs/screenshots/sleeping.png" width="320" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/skin-menu.png" width="320" />
+  <img src="docs/screenshots/running-brown.png" width="280" />
+  <img src="docs/screenshots/running-skin.png" width="280" />
+  <img src="docs/screenshots/daily-report.png" width="280" />
 </p>
 
 ---
