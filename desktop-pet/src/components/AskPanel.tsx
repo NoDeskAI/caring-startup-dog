@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useDogStore } from "../store/dogStore";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { homeDir } from "@tauri-apps/api/path";
-import { logMood } from "../db";
+import { join } from "@tauri-apps/api/path";
+import { logMood, getBasePath } from "../db";
 
 interface Choice {
   label: string;
@@ -12,9 +12,9 @@ interface Choice {
 }
 
 const CHOICES: Choice[] = [
-  { label: "状态好，在冲!", userMood: 5, value: "running", emotionScore: 1.0 },
-  { label: "节奏放缓一下", userMood: 3, value: "a_bit_tired", emotionScore: -0.2 },
-  { label: "动力积蓄中...", userMood: 1, value: "sleeping", emotionScore: -0.6 },
+  { label: "精力充沛!", userMood: 5, value: "running", emotionScore: 1.0 },
+  { label: "有点累了...", userMood: 3, value: "a_bit_tired", emotionScore: -0.2 },
+  { label: "好困...想躺下", userMood: 1, value: "sleeping", emotionScore: -0.6 },
 ];
 
 export function AskPanel() {
@@ -58,8 +58,8 @@ export function AskPanel() {
     }
 
     try {
-      const home = await homeDir();
-      const responsePath = `${home}.创业狗/user-response.json`;
+      const base = await getBasePath();
+      const responsePath = await join(base, "user-response.json");
       const data = JSON.stringify(
         {
           timestamp: new Date().toISOString(),
@@ -83,7 +83,7 @@ export function AskPanel() {
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
-        top: 10,
+        bottom: 175,
         padding: "10px 12px",
         zIndex: 300,
         width: 160,
@@ -91,7 +91,7 @@ export function AskPanel() {
       }}
     >
       <div style={{ fontSize: 11, fontWeight: "bold", marginBottom: 8 }}>
-        你的狗累了吗?
+        我现在...
       </div>
       {CHOICES.map((c) => (
         <button

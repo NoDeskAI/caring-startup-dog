@@ -5,6 +5,7 @@ import { AskPanel } from "./components/AskPanel";
 import { MoodSlider } from "./components/MoodSlider";
 import { ContextMenu } from "./components/ContextMenu";
 import { DailyReport } from "./components/DailyReport";
+import { ConnIndicator } from "./components/ConnIndicator";
 import { useStateWatcher } from "./hooks/useStateWatcher";
 import "./App.css";
 
@@ -20,6 +21,7 @@ function App() {
       <AskPanel />
       <ContextMenu />
       <DailyReport />
+      <ConnIndicator />
     </div>
   );
 }

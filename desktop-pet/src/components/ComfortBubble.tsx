@@ -28,10 +28,10 @@ export function ComfortBubble() {
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
-        bottom: 170,
+        bottom: 180,
         zIndex: 200,
         cursor: "pointer",
-        maxWidth: 220,
+        maxWidth: 200,
       }}
     >
       {/* speech bubble body */}

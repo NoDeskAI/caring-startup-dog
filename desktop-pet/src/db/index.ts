@@ -1,47 +1,30 @@
 import Database from "@tauri-apps/plugin-sql";
 import { homeDir } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 
 let db: Database | null = null;
 
+/** "今天"从凌晨 4 点算起，用 -4 hours 偏移日期边界 */
+const TODAY_SQL = "date(ts,'-4 hours') = date('now','localtime','-4 hours')";
+
+export async function getBasePath(): Promise<string> {
+  const home = await homeDir();
+  return await join(home, ".创业狗");
+}
+
 export async function getDb(): Promise<Database> {
   if (db) return db;
-
-  const home = await homeDir();
-  db = await Database.load(`sqlite:${home}.创业狗/dog.db`);
-
-  await db.execute("PRAGMA journal_mode=WAL");
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS mood_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ts TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-      source TEXT NOT NULL,
-      dog_state TEXT NOT NULL,
-      emotion_score REAL NOT NULL,
-      emotion_label TEXT,
-      energy INTEGER,
-      active_hours REAL,
-      msg_count INTEGER,
-      prompt_count INTEGER,
-      work_summary TEXT,
-      user_note TEXT
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS daily_summary (
-      date TEXT PRIMARY KEY,
-      avg_emotion REAL,
-      total_active_hours REAL,
-      total_messages INTEGER,
-      total_prompts INTEGER,
-      peak_stress_time TEXT,
-      dog_evolution_stage TEXT,
-      synced_to_feishu INTEGER DEFAULT 0
-    )
-  `);
-
+  db = await Database.load("sqlite:dog.db");
   return db;
+}
+
+export async function initDb(): Promise<void> {
+  try {
+    await getDb();
+    console.log("[db] connection ready");
+  } catch (err) {
+    console.error("[db] init failed:", err);
+  }
 }
 
 export interface MoodLogEntry {
@@ -66,42 +49,114 @@ export interface DailySummaryData {
 
 export async function getTodayMoodLogs(): Promise<MoodLogEntry[]> {
   const d = await getDb();
-  const rows = await d.select<MoodLogEntry[]>(
-    `SELECT id, ts, source, dog_state, emotion_score, emotion_label, energy, work_summary
-     FROM mood_log
-     WHERE date(ts) = date('now','localtime')
-     ORDER BY ts ASC`
+  return await d.select<MoodLogEntry[]>(
+    `SELECT id, ts, source, dog_state, emotion_score, emotion_label, energy, work_summary FROM mood_log WHERE ${TODAY_SQL} ORDER BY ts ASC`
   );
-  return rows;
 }
 
 export async function getTodaySummary(): Promise<DailySummaryData> {
   const d = await getDb();
   const rows = await d.select<DailySummaryData[]>(
-    `SELECT
-       COUNT(*) as count,
-       COALESCE(AVG(emotion_score), 0) as avg_emotion,
-       COALESCE(MIN(emotion_score), 0) as min_emotion,
-       COALESCE(MAX(emotion_score), 0) as max_emotion,
-       MIN(ts) as first_ts,
-       MAX(ts) as last_ts
-     FROM mood_log
-     WHERE date(ts) = date('now','localtime')`
+    `SELECT COUNT(*) as count, COALESCE(AVG(emotion_score), 0) as avg_emotion, COALESCE(MIN(emotion_score), 0) as min_emotion, COALESCE(MAX(emotion_score), 0) as max_emotion, MIN(ts) as first_ts, MAX(ts) as last_ts FROM mood_log WHERE ${TODAY_SQL}`
   );
   return rows[0] ?? { count: 0, avg_emotion: 0, min_emotion: 0, max_emotion: 0, first_ts: null, last_ts: null };
 }
 
 export async function getRecentMoodLogs(hours: number): Promise<MoodLogEntry[]> {
   const d = await getDb();
-  const rows = await d.select<MoodLogEntry[]>(
-    `SELECT id, ts, source, dog_state, emotion_score, emotion_label, energy, work_summary
-     FROM mood_log
-     WHERE ts >= datetime('now','localtime','-' || $1 || ' hours')
-     ORDER BY ts DESC`,
+  return await d.select<MoodLogEntry[]>(
+    "SELECT id, ts, source, dog_state, emotion_score, emotion_label, energy, work_summary FROM mood_log WHERE ts >= datetime('now','localtime','-' || ? || ' hours') ORDER BY ts DESC",
     [hours]
   );
-  return rows;
 }
+
+// ── work_snapshot ──
+
+export interface WorkSnapshot {
+  id: number;
+  ts: string;
+  energy: number | null;
+  msg_count: number | null;
+  prompt_count: number | null;
+  active_hours: number | null;
+  work_mode: string | null;
+  work_summary: string | null;
+  last_update: string | null;
+}
+
+export async function saveWorkSnapshot(params: {
+  energy?: number;
+  msg_count?: number;
+  prompt_count?: number;
+  active_hours?: number;
+  work_mode?: string;
+  work_summary?: string;
+  last_update?: string;
+}): Promise<void> {
+  const d = await getDb();
+  await d.execute(
+    "INSERT OR IGNORE INTO work_snapshot (energy, msg_count, prompt_count, active_hours, work_mode, work_summary, last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [
+      params.energy ?? null,
+      params.msg_count ?? null,
+      params.prompt_count ?? null,
+      params.active_hours ?? null,
+      params.work_mode ?? null,
+      params.work_summary ?? null,
+      params.last_update ?? null,
+    ]
+  );
+}
+
+export async function getTodaySnapshots(): Promise<WorkSnapshot[]> {
+  const d = await getDb();
+  return await d.select<WorkSnapshot[]>(
+    `SELECT * FROM work_snapshot WHERE ${TODAY_SQL} ORDER BY ts ASC`
+  );
+}
+
+export async function getRecentSnapshots(hours: number): Promise<WorkSnapshot[]> {
+  const d = await getDb();
+  return await d.select<WorkSnapshot[]>(
+    "SELECT * FROM work_snapshot WHERE ts >= datetime('now','localtime','-' || ? || ' hours') ORDER BY ts ASC",
+    [hours]
+  );
+}
+
+export interface WorkDaySummary {
+  snapshot_count: number;
+  total_prompts: number;
+  total_messages: number;
+  max_active_hours: number;
+  modes: string[];
+}
+
+export async function getTodayWorkSummary(): Promise<WorkDaySummary> {
+  const d = await getDb();
+  const rows = await d.select<Array<{
+    cnt: number;
+    tp: number;
+    tm: number;
+    mah: number;
+  }>>(
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(prompt_count),0) as tp, COALESCE(SUM(msg_count),0) as tm, COALESCE(MAX(active_hours),0) as mah FROM work_snapshot WHERE ${TODAY_SQL}`
+  );
+  const r = rows[0] ?? { cnt: 0, tp: 0, tm: 0, mah: 0 };
+
+  const modeRows = await d.select<Array<{ work_mode: string }>>(
+    `SELECT DISTINCT work_mode FROM work_snapshot WHERE ${TODAY_SQL} AND work_mode IS NOT NULL`
+  );
+
+  return {
+    snapshot_count: r.cnt,
+    total_prompts: r.tp,
+    total_messages: r.tm,
+    max_active_hours: r.mah,
+    modes: modeRows.map((m) => m.work_mode),
+  };
+}
+
+// ── mood_log ──
 
 export async function logMood(params: {
   source: string;
@@ -117,8 +172,7 @@ export async function logMood(params: {
 }): Promise<void> {
   const d = await getDb();
   await d.execute(
-    `INSERT INTO mood_log (source, dog_state, emotion_score, emotion_label, energy, active_hours, msg_count, prompt_count, work_summary, user_note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    "INSERT INTO mood_log (source, dog_state, emotion_score, emotion_label, energy, active_hours, msg_count, prompt_count, work_summary, user_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       params.source,
       params.dog_state,

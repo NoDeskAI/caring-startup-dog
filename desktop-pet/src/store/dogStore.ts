@@ -14,6 +14,8 @@ export interface StatusData {
   active_hours: number;
   alert_level?: string;
   work_summary?: string;
+  hover_text?: string;
+  daily_narrative?: string;
   stress_signals?: string[];
   message?: string;
   comfort_trigger?: boolean;
@@ -26,12 +28,21 @@ export interface ComfortMessage {
   ttl_seconds: number;
 }
 
+export type ConnStatus = "ok" | "stale" | "off";
+
+export interface ConnState {
+  openclaw: ConnStatus;
+  feishu: ConnStatus;
+  lastCheck: number;
+}
+
 interface DogStore {
   energy: number;
   userMood: number;
   dogState: DogStateName;
   statusData: StatusData | null;
   comfortMessage: ComfortMessage | null;
+  connState: ConnState;
   showAskPanel: boolean;
   showStatusBubble: boolean;
   showMoodSlider: boolean;
@@ -45,6 +56,7 @@ interface DogStore {
   setDogState: (state: DogStateName) => void;
   setStatusData: (data: StatusData) => void;
   setComfortMessage: (msg: ComfortMessage | null) => void;
+  setConnState: (state: ConnState) => void;
   setShowAskPanel: (show: boolean) => void;
   setShowStatusBubble: (show: boolean) => void;
   setShowMoodSlider: (show: boolean) => void;
@@ -66,32 +78,52 @@ export const useDogStore = create<DogStore>((set, get) => ({
   showSkinMenu: false,
   showContextMenu: false,
   showDailyReport: false,
+  connState: { openclaw: "off", feishu: "off", lastCheck: 0 },
   dogColor: DEFAULT_DOG_COLOR,
 
   setEnergy: (energy) => {
-    const { userMood } = get();
-    set({ energy, dogState: resolveDogState(userMood, energy) });
+    set({ energy });
   },
   setUserMood: (mood) => {
-    const { energy } = get();
-    set({ userMood: mood, dogState: resolveDogState(mood, energy) });
+    set({ userMood: mood, dogState: resolveDogState(mood) });
   },
   setDogState: (state) => set({ dogState: state }),
   setStatusData: (data) => {
-    const { userMood } = get();
     const energy = data.energy ?? get().energy;
     set({
       statusData: data,
       energy,
-      dogState: resolveDogState(userMood, energy),
     });
   },
-  setComfortMessage: (msg) => set({ comfortMessage: msg }),
-  setShowAskPanel: (show) => set({ showAskPanel: show }),
-  setShowStatusBubble: (show) => set({ showStatusBubble: show }),
-  setShowMoodSlider: (show) => set({ showMoodSlider: show }),
+  setComfortMessage: (msg) => {
+    if (msg) {
+      set({ comfortMessage: msg, showStatusBubble: false });
+    } else {
+      set({ comfortMessage: msg });
+    }
+  },
+  setShowAskPanel: (show) => {
+    if (show) set({ showAskPanel: true, showStatusBubble: false, showMoodSlider: false, showDailyReport: false, showContextMenu: false });
+    else set({ showAskPanel: false });
+  },
+  setShowStatusBubble: (show) => {
+    const { comfortMessage, showMoodSlider, showDailyReport, showAskPanel } = get();
+    if (show && (comfortMessage || showMoodSlider || showDailyReport || showAskPanel)) return;
+    set({ showStatusBubble: show });
+  },
+  setShowMoodSlider: (show) => {
+    if (show) set({ showMoodSlider: true, showStatusBubble: false, showAskPanel: false, showDailyReport: false, showContextMenu: false });
+    else set({ showMoodSlider: false });
+  },
   setShowSkinMenu: (show) => set({ showSkinMenu: show }),
-  setShowContextMenu: (show) => set({ showContextMenu: show }),
-  setShowDailyReport: (show) => set({ showDailyReport: show }),
+  setShowContextMenu: (show) => {
+    if (show) set({ showContextMenu: true, showMoodSlider: false, showAskPanel: false });
+    else set({ showContextMenu: false });
+  },
+  setShowDailyReport: (show) => {
+    if (show) set({ showDailyReport: true, showStatusBubble: false, showAskPanel: false, showMoodSlider: false, showContextMenu: false });
+    else set({ showDailyReport: false });
+  },
+  setConnState: (state) => set({ connState: state }),
   setDogColor: (color) => set({ dogColor: color }),
 }));

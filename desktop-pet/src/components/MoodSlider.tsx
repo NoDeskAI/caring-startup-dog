@@ -11,11 +11,11 @@ interface MoodLevel {
 }
 
 const MOOD_LEVELS: MoodLevel[] = [
-  { value: 1, score: -1.0, label: "充电中", icon: "u_u" },
-  { value: 2, score: -0.5, label: "缓一缓", icon: "-.-" },
-  { value: 3, score: 0.0, label: "还行", icon: "-_-" },
-  { value: 4, score: 0.5, label: "不错", icon: "^_^" },
-  { value: 5, score: 1.0, label: "在冲!", icon: "^o^" },
+  { value: 1, score: -1.0, label: "困困的...", icon: "u_u" },
+  { value: 2, score: -0.5, label: "有点累", icon: "-.-" },
+  { value: 3, score: 0.0, label: "还行吧", icon: "-_-" },
+  { value: 4, score: 0.5, label: "精神不错", icon: "^_^" },
+  { value: 5, score: 1.0, label: "超有劲!", icon: "^o^" },
 ];
 
 export function MoodSlider() {
@@ -25,6 +25,7 @@ export function MoodSlider() {
   const energy = useDogStore((s) => s.energy);
   const [sliderValue, setSliderValue] = useState(3);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showMoodSlider) return;
@@ -53,6 +54,7 @@ export function MoodSlider() {
 
     const resolvedState = MOOD_TO_STATE[sliderValue] ?? "walking";
     try {
+      setError(null);
       await logMood({
         source: "user_click",
         dog_state: resolvedState,
@@ -60,12 +62,14 @@ export function MoodSlider() {
         emotion_label: mood.label,
         energy,
       });
+      setSubmitting(false);
+      setShowMoodSlider(false);
     } catch (err) {
-      console.error("Failed to log mood:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Failed to log mood:", msg);
+      setError(msg);
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    setShowMoodSlider(false);
   }, [sliderValue, submitting, setUserMood, setShowMoodSlider, energy]);
 
   if (!showMoodSlider) return null;
@@ -78,7 +82,7 @@ export function MoodSlider() {
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
-        top: 10,
+        bottom: 175,
         padding: "10px 14px 8px",
         zIndex: 300,
         width: 200,
@@ -86,7 +90,7 @@ export function MoodSlider() {
       }}
     >
       <div style={{ fontSize: 11, fontWeight: "bold", marginBottom: 8 }}>
-        心情如何?
+        我现在感觉...
       </div>
 
       <div style={{ fontSize: 18, lineHeight: 1, marginBottom: 2 }}>
@@ -155,6 +159,11 @@ export function MoodSlider() {
       >
         {submitting ? "..." : "记录"}
       </button>
+      {error && (
+        <div style={{ marginTop: 4, fontSize: 8, color: "#c44", wordBreak: "break-all" }}>
+          ERR: {error}
+        </div>
+      )}
     </div>
   );
 }

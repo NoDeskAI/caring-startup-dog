@@ -40,6 +40,9 @@
     ]
   },
   "plugins": {
-    "fs": {}
+    "fs": {},
+    "shell": {
+      "open": true
+    }
   }
 }

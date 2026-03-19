@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
 import { useDogStore } from "../store/dogStore";
-import { getTodayMoodLogs, getTodaySummary } from "../db";
-import type { MoodLogEntry, DailySummaryData } from "../db";
+import { getTodayMoodLogs, getTodaySnapshots } from "../db";
+import type { MoodLogEntry, WorkSnapshot } from "../db";
+import type { WorkMode } from "../services/localAnalysis";
 
 function formatTime(ts: string): string {
   try {
-    const d = new Date(ts.includes("T") ? ts : ts + "T00:00:00");
+    const normalized = ts.replace(" ", "T");
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return ts.slice(11, 16) || "--:--";
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   } catch {
     return ts.slice(11, 16) || "--:--";
+  }
+}
+
+function getHour(ts: string): number {
+  try {
+    const d = new Date(ts.replace(" ", "T"));
+    return isNaN(d.getTime()) ? 0 : d.getHours();
+  } catch {
+    return 0;
   }
 }
 
@@ -19,30 +31,123 @@ function scoreFace(score: number): string {
   return ">_<";
 }
 
-function scoreLabel(score: number): string {
-  if (score >= 0.5) return "不错";
-  if (score >= 0) return "还行";
-  if (score >= -0.5) return "一般";
-  return "低落";
+// ── Narrative builder ──
+
+interface TimeBlock {
+  label: string;
+  modes: WorkMode[];
+  snapshotCount: number;
+  promptTotal: number;
+  msgTotal: number;
 }
+
+function buildTimeline(snapshots: WorkSnapshot[]): TimeBlock[] {
+  const blocks: Record<string, TimeBlock> = {};
+  const DAY_START = 4;
+  const ranges = [
+    { key: "early", label: "凌晨", start: 4, end: 6 },
+    { key: "morning", label: "上午", start: 6, end: 12 },
+    { key: "afternoon", label: "下午", start: 12, end: 18 },
+    { key: "evening", label: "傍晚", start: 18, end: 22 },
+    { key: "night", label: "深夜", start: 22, end: 28 },
+  ];
+
+  for (const s of snapshots) {
+    let h = getHour(s.ts);
+    if (h < DAY_START) h += 24;
+    const range = ranges.find((r) => h >= r.start && h < r.end) ?? ranges[0];
+    if (!blocks[range.key]) {
+      blocks[range.key] = {
+        label: range.label,
+        modes: [],
+        snapshotCount: 0,
+        promptTotal: 0,
+        msgTotal: 0,
+      };
+    }
+    const b = blocks[range.key];
+    b.snapshotCount++;
+    b.promptTotal += s.prompt_count ?? 0;
+    b.msgTotal += s.msg_count ?? 0;
+    if (s.work_mode) b.modes.push(s.work_mode as WorkMode);
+  }
+
+  return ranges
+    .filter((r) => blocks[r.key])
+    .map((r) => blocks[r.key]);
+}
+
+const MODE_VERB: Record<WorkMode, string> = {
+  deep_coding: "一直盯着屏幕，好多代码从眼前飞过",
+  msg_overload: "消息好多，耳朵一直竖着",
+  multitasking: "一会儿看代码一会儿听消息，转来转去的",
+  steady: "不紧不慢地走着，节奏刚好",
+  winding_down: "慢下来了，打了几个哈欠",
+  resting: "趴着没动，很安静",
+};
+
+function describePeriod(block: TimeBlock): string {
+  const uniqueModes = [...new Set(block.modes)] as WorkMode[];
+  if (uniqueModes.length === 0) return `${block.label}很安静，趴着没动`;
+
+  const primary = uniqueModes[0];
+  let desc = `${block.label}${MODE_VERB[primary]}`;
+
+  if (uniqueModes.length > 1) {
+    desc += `，后来又${MODE_VERB[uniqueModes[1]]}`;
+  }
+
+  return desc;
+}
+
+function buildNarrative(
+  snapshots: WorkSnapshot[],
+  moods: MoodLogEntry[]
+): string {
+  if (snapshots.length === 0 && moods.length === 0) {
+    return "今天还没有开始...伸个懒腰先";
+  }
+
+  const timeline = buildTimeline(snapshots);
+  const parts: string[] = [];
+
+  for (const block of timeline) {
+    parts.push(describePeriod(block));
+  }
+
+  if (moods.length > 0) {
+    const scores = moods.map((m) => m.emotion_score);
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    if (avg >= 0.3) {
+      parts.push("今天虽然跑了很久，但感觉还不错");
+    } else if (avg >= -0.3) {
+      parts.push("起起伏伏的一天...还是撑过来了");
+    } else {
+      parts.push("好累...但还是撑下来了");
+    }
+  }
+
+  return parts.join("。") + "。";
+}
+
+// ── Component ──
 
 export function DailyReport() {
   const visible = useDogStore((s) => s.showDailyReport);
   const setVisible = useDogStore((s) => s.setShowDailyReport);
-  const energy = useDogStore((s) => s.energy);
   const statusData = useDogStore((s) => s.statusData);
 
-  const [logs, setLogs] = useState<MoodLogEntry[]>([]);
-  const [summary, setSummary] = useState<DailySummaryData | null>(null);
+  const [moods, setMoods] = useState<MoodLogEntry[]>([]);
+  const [snapshots, setSnapshots] = useState<WorkSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!visible) return;
     setLoading(true);
-    Promise.all([getTodayMoodLogs(), getTodaySummary()])
-      .then(([l, s]) => {
-        setLogs(l);
-        setSummary(s);
+    Promise.all([getTodayMoodLogs(), getTodaySnapshots()])
+      .then(([m, s]) => {
+        setMoods(m);
+        setSnapshots(s);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -66,27 +171,35 @@ export function DailyReport() {
 
   if (!visible) return null;
 
-  const avgStr = summary
-    ? (Math.round(summary.avg_emotion * 10) / 10).toFixed(1)
-    : "0";
+  const narrative = statusData?.daily_narrative || buildNarrative(snapshots, moods);
 
   return (
-    <div
-      data-daily-report
-      className="pixel-box"
-      style={{
-        position: "absolute",
-        left: "50%",
-        transform: "translateX(-50%)",
-        top: 6,
-        bottom: 80,
-        padding: "10px 12px",
-        zIndex: 400,
-        width: 240,
-        overflowY: "auto",
-        fontSize: 10,
-      }}
-    >
+    <>
+      {/* full-screen backdrop to catch clicks on transparent areas */}
+      <div
+        onClick={() => setVisible(false)}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 399,
+        }}
+      />
+      <div
+        data-daily-report
+        className="pixel-box"
+        style={{
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          top: 6,
+          bottom: 80,
+          padding: "10px 12px",
+          zIndex: 400,
+          width: 240,
+          overflowY: "auto",
+          fontSize: 10,
+        }}
+      >
       <div
         style={{
           textAlign: "center",
@@ -97,7 +210,7 @@ export function DailyReport() {
           paddingBottom: 6,
         }}
       >
-        - 今日报告 -
+        - 今天的日记 -
       </div>
 
       {loading ? (
@@ -106,62 +219,73 @@ export function DailyReport() {
         </div>
       ) : (
         <>
-          {/* summary stats */}
+          {/* narrative summary */}
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-around",
-              marginBottom: 8,
-              padding: "6px 0",
+              marginBottom: 10,
+              padding: "6px 8px",
               backgroundColor: "var(--pixel-bg-dark)",
               border: "1px solid var(--pixel-border)",
+              lineHeight: 1.7,
+              fontSize: 10,
             }}
           >
-            <StatBlock label="记录" value={String(summary?.count ?? 0)} />
-            <StatBlock
-              label="心情"
-              value={`${avgStr} ${summary ? scoreFace(summary.avg_emotion) : ""}`}
-            />
-            <StatBlock label="能量" value={`${energy}`} />
+            {narrative}
           </div>
 
-          {/* work summary */}
-          {statusData?.work_summary && (
-            <div
-              style={{
-                marginBottom: 8,
-                padding: "4px 6px",
-                backgroundColor: "var(--pixel-bg-dark)",
-                border: "1px solid var(--pixel-border)",
-                fontSize: 9,
-                lineHeight: 1.5,
-              }}
-            >
+          {/* mood timeline */}
+          {moods.length > 0 && (
+            <>
               <div
                 style={{
                   fontWeight: "bold",
-                  marginBottom: 2,
+                  marginBottom: 4,
                   color: "var(--pixel-text-light)",
                 }}
               >
-                最近工作:
+                心情记录:
               </div>
-              {statusData.work_summary}
-            </div>
+              <div>
+                {moods.map((log) => (
+                  <div
+                    key={log.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "3px 0",
+                      borderBottom: "1px solid rgba(139,94,52,0.15)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        color: "var(--pixel-text-light)",
+                        minWidth: 36,
+                      }}
+                    >
+                      {formatTime(log.ts)}
+                    </span>
+                    <span style={{ minWidth: 24, textAlign: "center" }}>
+                      {scoreFace(log.emotion_score)}
+                    </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {log.emotion_label || ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
-          {/* mood timeline */}
-          <div
-            style={{
-              fontWeight: "bold",
-              marginBottom: 4,
-              color: "var(--pixel-text-light)",
-            }}
-          >
-            心情时间线:
-          </div>
-
-          {logs.length === 0 ? (
+          {moods.length === 0 && snapshots.length === 0 && (
             <div
               style={{
                 textAlign: "center",
@@ -169,70 +293,12 @@ export function DailyReport() {
                 opacity: 0.5,
               }}
             >
-              今天还没有记录
-            </div>
-          ) : (
-            <div>
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "3px 0",
-                    borderBottom: "1px solid rgba(139,94,52,0.15)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "monospace",
-                      color: "var(--pixel-text-light)",
-                      minWidth: 36,
-                    }}
-                  >
-                    {formatTime(log.ts)}
-                  </span>
-                  <span style={{ minWidth: 24, textAlign: "center" }}>
-                    {scoreFace(log.emotion_score)}
-                  </span>
-                  <span
-                    style={{
-                      flex: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {log.emotion_label || scoreLabel(log.emotion_score)}
-                  </span>
-                  {log.energy != null && (
-                    <span
-                      style={{
-                        fontSize: 9,
-                        opacity: 0.6,
-                        minWidth: 20,
-                        textAlign: "right",
-                      }}
-                    >
-                      E{log.energy}
-                    </span>
-                  )}
-                </div>
-              ))}
+              今天还没写什么...
             </div>
           )}
         </>
       )}
     </div>
-  );
-}
-
-function StatBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 9, opacity: 0.6, marginBottom: 1 }}>{label}</div>
-      <div style={{ fontWeight: "bold", fontSize: 11 }}>{value}</div>
-    </div>
+    </>
   );
 }

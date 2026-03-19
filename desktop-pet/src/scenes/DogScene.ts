@@ -14,8 +14,6 @@ export class DogScene extends Phaser.Scene {
   private currentState: DogStateName = "running";
   private dogColor: number = DEFAULT_DOG_COLOR;
   private assetsLoaded = false;
-  private pointerDownTime = 0;
-  private dragTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     super("DogScene");
@@ -71,42 +69,18 @@ export class DogScene extends Phaser.Scene {
 
     this.dog = this.add
       .sprite(cx, cy, this.getSpriteKey(), 0)
-      .setScale(3)
-      .setInteractive();
+      .setScale(3);
 
     this.playAnimation(this.currentState);
 
-    this.dog.on("pointerover", () => {
-      this.game.events.emit("dog-hover-start");
-    });
-
-    this.dog.on("pointerout", () => {
-      this.game.events.emit("dog-hover-end");
-    });
-
-    this.dog.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) {
-        this.game.events.emit("dog-rightclick");
-        return;
-      }
-      this.pointerDownTime = Date.now();
-      this.dragTimer = setTimeout(() => {
-        if (this.pointerDownTime > 0) {
-          this.pointerDownTime = 0;
-          this.game.events.emit("start-window-drag");
-        }
-      }, 180);
-    });
-
-    this.input.on("pointerup", () => {
-      if (this.pointerDownTime > 0) {
-        if (this.dragTimer) clearTimeout(this.dragTimer);
-        this.dragTimer = null;
-        this.pointerDownTime = 0;
-        this.game.events.emit("dog-clicked");
+    this.game.events.on("set-hover", (hover: boolean) => {
+      if (!this.dog) return;
+      if (hover) {
+        this.dog.setTint(0xddeeff);
+      } else {
+        this.dog.clearTint();
       }
     });
-
   }
 
   private getSpriteKey(): string {
@@ -169,46 +143,10 @@ export class DogScene extends Phaser.Scene {
     }
   }
 
-  private updateBubble(state: DogStateName) {
+  private updateBubble(_state: DogStateName) {
     if (this.bubble) {
       this.bubble.destroy();
       this.bubble = undefined;
     }
-
-    const config = DOG_STATES[state];
-    if (!config?.bubble) return;
-
-    let emoteKey: string;
-    switch (config.bubble) {
-      case "zzz":
-        emoteKey = "emote_bored";
-        break;
-      case "heart":
-        emoteKey = "emote_very_happy";
-        break;
-      case "question":
-        emoteKey = "emote_question";
-        break;
-      default:
-        emoteKey = "emote_neutral";
-    }
-
-    if (!this.textures.exists(emoteKey)) return;
-
-    this.bubble = this.add.sprite(
-      this.dog.x + 30,
-      this.dog.y - 55,
-      emoteKey
-    );
-    this.bubble.setScale(1.5);
-
-    this.tweens.add({
-      targets: this.bubble,
-      y: this.bubble.y - 4,
-      duration: 1200,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
-    });
   }
 }

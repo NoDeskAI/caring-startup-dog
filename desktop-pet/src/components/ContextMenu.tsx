@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDogStore } from "../store/dogStore";
 import { DOG_SKINS } from "../config/dog-states";
-import { analyzeRecentWork } from "../services/localAnalysis";
+import { triggerPetHead, getRandomFunText } from "../services/localAnalysis";
 
 type SubMenu = "none" | "skins";
 
@@ -15,6 +15,7 @@ export function ContextMenu() {
 
   const [sub, setSub] = useState<SubMenu>("none");
   const [petting, setPetting] = useState(false);
+  const [asking, setAsking] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -45,20 +46,59 @@ export function ContextMenu() {
 
   async function handlePetHead() {
     setPetting(true);
+    setVisible(false);
     try {
-      const msg = await analyzeRecentWork();
-      setComfortMessage(msg);
-    } catch (err) {
-      console.error("Failed to analyze:", err);
+      const text = await getRandomFunText();
       setComfortMessage({
         timestamp: new Date().toISOString(),
-        comfort_text: "汪！摸摸头好舒服~",
+        comfort_text: text,
         choice: "pet_head",
-        ttl_seconds: 10,
+        ttl_seconds: 12,
+      });
+    } catch {
+      setComfortMessage({
+        timestamp: new Date().toISOString(),
+        comfort_text: "嘿嘿嘿嘿嘿",
+        choice: "pet_head",
+        ttl_seconds: 8,
       });
     }
     setPetting(false);
+  }
+
+  async function handleWhatDoing() {
+    setAsking(true);
     setVisible(false);
+
+    setComfortMessage({
+      timestamp: "_thinking_",
+      comfort_text: "嗯...",
+      choice: "what_doing",
+      ttl_seconds: 90,
+    });
+
+    try {
+      const msg = await triggerPetHead();
+      if (msg) {
+        setComfortMessage(msg);
+      } else {
+        setComfortMessage({
+          timestamp: new Date().toISOString(),
+          comfort_text: "想说什么来着...忘了",
+          choice: "what_doing",
+          ttl_seconds: 10,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to trigger LLM:", err);
+      setComfortMessage({
+        timestamp: new Date().toISOString(),
+        comfort_text: "嘿嘿...等下再说",
+        choice: "what_doing",
+        ttl_seconds: 10,
+      });
+    }
+    setAsking(false);
   }
 
   function handleDailyReport() {
@@ -146,7 +186,8 @@ export function ContextMenu() {
       onPointerDown={(e) => e.stopPropagation()}
     >
       <MenuItem label="摸摸头" onClick={handlePetHead} disabled={petting} />
-      <MenuItem label="今日报告" onClick={handleDailyReport} />
+      <MenuItem label="在干嘛" onClick={handleWhatDoing} disabled={asking} />
+      <MenuItem label="今天的日记" onClick={handleDailyReport} />
       <div
         style={{
           height: 2,

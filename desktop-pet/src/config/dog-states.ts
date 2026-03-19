@@ -18,7 +18,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     frames: 8,
     speed: 0,
     bubble: "heart",
-    label: "状态好，在冲！",
+    label: "冲冲冲!",
     vitality: 5,
     energyThreshold: 70,
   },
@@ -26,7 +26,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     row: 4,
     frames: 8,
     speed: 0,
-    label: "稳步推进中",
+    label: "走走走~",
     vitality: 4,
     energyThreshold: 50,
   },
@@ -34,7 +34,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     row: 1,
     frames: 6,
     speed: 0,
-    label: "节奏放缓一下",
+    label: "有点累了...",
     vitality: 3,
     energyThreshold: 30,
   },
@@ -42,7 +42,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     row: 2,
     frames: 6,
     speed: 0,
-    label: "动力积蓄中...",
+    label: "歇会儿...",
     vitality: 2,
     energyThreshold: 15,
   },
@@ -51,7 +51,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     frames: 4,
     speed: 0,
     bubble: "zzz",
-    label: "充电中，马上回来",
+    label: "zzZ...",
     vitality: 1,
     energyThreshold: 0,
   },
@@ -60,7 +60,7 @@ export const DOG_STATES: Record<string, DogStateConfig> = {
     frames: 6,
     speed: 0,
     bubble: "question",
-    label: "你的狗想问你...",
+    label: "...?",
     vitality: 0,
     energyThreshold: 0,
   },
@@ -76,32 +76,8 @@ export const MOOD_TO_STATE: Record<number, DogStateName> = {
   5: "running",
 };
 
-const VITALITY_STATES: DogStateName[] = [
-  "sleeping",
-  "sleeping",
-  "resting",
-  "a_bit_tired",
-  "walking",
-  "running",
-];
-
-function energyToMaxVitality(energy: number): number {
-  if (energy >= 70) return 5;
-  if (energy >= 50) return 4;
-  if (energy >= 30) return 3;
-  if (energy >= 15) return 2;
-  return 1;
-}
-
-export function resolveDogState(
-  userMood: number,
-  energy: number
-): DogStateName {
-  const desired = MOOD_TO_STATE[userMood] ?? "walking";
-  const desiredVitality = DOG_STATES[desired]?.vitality ?? 3;
-  const maxVitality = energyToMaxVitality(energy);
-  if (desiredVitality <= maxVitality) return desired;
-  return VITALITY_STATES[maxVitality] ?? "sleeping";
+export function resolveDogState(userMood: number): DogStateName {
+  return MOOD_TO_STATE[userMood] ?? "walking";
 }
 
 export const DEFAULT_DOG_COLOR = 5;
