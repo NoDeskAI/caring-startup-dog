@@ -11,6 +11,9 @@ import type { DogStateName } from "../config/dog-states";
 export class DogScene extends Phaser.Scene {
   private dog!: Phaser.GameObjects.Sprite;
   private bubble?: Phaser.GameObjects.Sprite;
+  private coin?: Phaser.GameObjects.Image;
+  private coinTween?: Phaser.Tweens.Tween;
+  private coinVisible = false;
   private currentState: DogStateName = "running";
   private dogColor: number = DEFAULT_DOG_COLOR;
   private assetsLoaded = false;
@@ -50,6 +53,11 @@ export class DogScene extends Phaser.Scene {
       needsLoad = true;
     }
 
+    if (!this.textures.exists("coin")) {
+      this.load.image("coin", "sprites/coin.png");
+      needsLoad = true;
+    }
+
     if (needsLoad) {
       this.load.once("complete", () => this.onAssetsLoaded());
       this.load.start();
@@ -65,10 +73,11 @@ export class DogScene extends Phaser.Scene {
     this.createAnimationsForColor(this.dogColor);
 
     const cx = this.cameras.main.width / 2;
-    const cy = this.cameras.main.height - 80;
+    const groundY = this.cameras.main.height - 80;
 
     this.dog = this.add
-      .sprite(cx, cy, this.getSpriteKey(), 0)
+      .sprite(cx, groundY, this.getSpriteKey(), 0)
+      .setOrigin(0.5, 1.0)
       .setScale(3);
 
     this.playAnimation(this.currentState);
@@ -148,5 +157,59 @@ export class DogScene extends Phaser.Scene {
       this.bubble.destroy();
       this.bubble = undefined;
     }
+  }
+
+  dropCoin() {
+    if (!this.assetsLoaded || this.coinVisible) return;
+    this.coinVisible = true;
+
+    const cx = this.cameras.main.width / 2 + 60;
+    const targetY = this.cameras.main.height - 80;
+
+    const img = this.add.image(cx, -20, "coin");
+    img.setScale(0.035);
+    this.coin = img;
+
+    this.coinTween = this.tweens.add({
+      targets: img,
+      y: targetY,
+      duration: 600,
+      ease: "Bounce.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: img,
+          scaleX: { from: 0.035, to: 0.038 },
+          scaleY: { from: 0.035, to: 0.032 },
+          yoyo: true,
+          repeat: -1,
+          duration: 500,
+          ease: "Sine.easeInOut",
+        });
+      },
+    });
+
+    this.game.events.emit("coin-landed");
+  }
+
+  collectCoin(): boolean {
+    if (!this.coinVisible || !this.coin) return false;
+    this.coinVisible = false;
+
+    this.tweens.killTweensOf(this.coin);
+
+    this.tweens.add({
+      targets: this.coin,
+      y: this.coin.y - 40,
+      alpha: 0,
+      scaleX: 0.02,
+      scaleY: 0.02,
+      duration: 300,
+      ease: "Power2",
+      onComplete: () => {
+        this.coin?.destroy();
+        this.coin = undefined;
+      },
+    });
+    return true;
   }
 }

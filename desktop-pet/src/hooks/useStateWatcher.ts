@@ -3,11 +3,24 @@ import { readTextFile, watchImmediate } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import { useDogStore } from "../store/dogStore";
 import type { StatusData, ComfortMessage, ConnState } from "../store/dogStore";
-import { getBasePath, initDb, saveWorkSnapshot, getRecentSnapshots } from "../db";
-import { detectWorkModeFromStatus } from "../services/localAnalysis";
+import { getBasePath, initDb, saveWorkSnapshot, getRecentSnapshots, getTotalCoins, getUnlockedSkins } from "../db";
+import { detectWorkModeFromStatus, ensureCron } from "../services/localAnalysis";
 
-const FRESH_MS = 20 * 60 * 1000;
-const STALE_MS = 60 * 60 * 1000;
+interface CronHeartbeat {
+  ts?: string;
+  timestamp?: string;
+  flow?: string;
+  type?: string;
+  llm_ok?: boolean;
+  funpool_written?: boolean;
+}
+
+function getHeartbeatTs(hb: CronHeartbeat | null): string | undefined {
+  return hb?.ts || hb?.timestamp;
+}
+
+const FRESH_MS = 12 * 60 * 1000;
+const STALE_MS = 25 * 60 * 1000;
 
 function deriveConnState(data: StatusData | null): ConnState {
   const now = Date.now();
@@ -17,7 +30,7 @@ function deriveConnState(data: StatusData | null): ConnState {
   const age = now - new Date(data.last_update).getTime();
   const openclaw = age < FRESH_MS ? "ok" : age < STALE_MS ? "stale" : "off";
   const feishu =
-    typeof data.msg_count_1h === "number" && openclaw !== "off" ? "ok" : "off";
+    data.feishu_ok === true && openclaw !== "off" ? "ok" : "off";
   return { openclaw, feishu, lastCheck: now };
 }
 
@@ -35,6 +48,9 @@ export function useStateWatcher() {
   const setComfortMessage = useDogStore((s) => s.setComfortMessage);
   const setConnState = useDogStore((s) => s.setConnState);
   const setShowAskPanel = useDogStore((s) => s.setShowAskPanel);
+  const setCoinReady = useDogStore((s) => s.setCoinReady);
+  const setTotalCoins = useDogStore((s) => s.setTotalCoins);
+  const setUnlockedSkins = useDogStore((s) => s.setUnlockedSkins);
   const lastAskTime = useRef<number>(Date.now());
   const ASK_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
@@ -43,6 +59,11 @@ export function useStateWatcher() {
 
     async function startWatching() {
       await initDb();
+
+      const [coins, skins] = await Promise.all([getTotalCoins(), getUnlockedSkins()]);
+      setTotalCoins(coins);
+      setUnlockedSkins(skins);
+
       const basePath = await getBasePath();
       const statusPath = await join(basePath, "status.json");
       const comfortPath = await join(basePath, "comfort-message.json");
@@ -55,6 +76,10 @@ export function useStateWatcher() {
         setConnState(deriveConnState(data));
         if (!data) return;
         setStatusData(data);
+
+        if (data.coin_ready && !useDogStore.getState().coinReady) {
+          setCoinReady(true);
+        }
 
         if (data.last_update && data.last_update !== lastSnapshotUpdate) {
           lastSnapshotUpdate = data.last_update;
@@ -105,7 +130,56 @@ export function useStateWatcher() {
       }
     }
 
+    let cronRepairInProgress = false;
+
+    async function checkCronHealth() {
+      if (cronRepairInProgress) return;
+
+      try {
+        const base = await getBasePath();
+        const heartbeatPath = await join(base, "cron-heartbeat.json");
+        const statusPath = await join(base, "status.json");
+
+        const heartbeat = await readJsonFile<CronHeartbeat>(heartbeatPath);
+        const status = await readJsonFile<StatusData>(statusPath);
+
+        const now = Date.now();
+        const HOURLY_STALE_MS = 75 * 60 * 1000;
+
+        const hbTs = getHeartbeatTs(heartbeat);
+        const heartbeatAge = hbTs
+          ? now - new Date(hbTs).getTime()
+          : Infinity;
+        const statusAge = status?.last_update
+          ? now - new Date(status.last_update).getTime()
+          : Infinity;
+
+        const hourlyCronStale = heartbeatAge > HOURLY_STALE_MS;
+        const dataCollectStale = statusAge > STALE_MS;
+
+        if (hourlyCronStale || dataCollectStale) {
+          console.log("[cron-monitor] cron appears stale", {
+            heartbeatAge: Math.round(heartbeatAge / 60000),
+            statusAge: Math.round(statusAge / 60000),
+            hourlyCronStale,
+            dataCollectStale,
+          });
+          cronRepairInProgress = true;
+          try {
+            const ok = await ensureCron();
+            console.log("[cron-monitor] repair result:", ok);
+          } finally {
+            cronRepairInProgress = false;
+          }
+        }
+      } catch (err) {
+        console.error("[cron-monitor] check failed:", err);
+      }
+    }
+
     startWatching();
+
+    setTimeout(checkCronHealth, 10_000);
 
     const askInterval = setInterval(() => {
       const now = Date.now();
@@ -120,10 +194,13 @@ export function useStateWatcher() {
       setConnState(deriveConnState(sd));
     }, 60_000);
 
+    const cronHealthCheck = setInterval(checkCronHealth, 15 * 60 * 1000);
+
     return () => {
       cleanup?.();
       clearInterval(askInterval);
       clearInterval(connRefresh);
+      clearInterval(cronHealthCheck);
     };
-  }, [setStatusData, setComfortMessage, setConnState, setShowAskPanel]);
+  }, [setStatusData, setComfortMessage, setConnState, setShowAskPanel, setCoinReady, setTotalCoins, setUnlockedSkins]);
 }

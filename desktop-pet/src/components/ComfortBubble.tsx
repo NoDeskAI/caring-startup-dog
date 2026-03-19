@@ -22,46 +22,50 @@ export function ComfortBubble() {
   if (!comfortMessage) return null;
 
   return (
-    <div
-      onClick={() => setComfortMessage(null)}
-      style={{
-        position: "absolute",
-        left: "50%",
-        transform: "translateX(-50%)",
-        bottom: 180,
-        zIndex: 200,
-        cursor: "pointer",
-        maxWidth: 200,
-      }}
-    >
-      {/* speech bubble body */}
+    <>
       <div
-        className="pixel-box"
+        onClick={() => setComfortMessage(null)}
+        style={{ position: "fixed", inset: 0, zIndex: 199 }}
+      />
+      <div
+        onClick={() => setComfortMessage(null)}
         style={{
-          padding: "8px 12px",
-          fontSize: 11,
-          lineHeight: 1.6,
-          textAlign: "center",
-          whiteSpace: "pre-wrap",
-          position: "relative",
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          bottom: 180,
+          zIndex: 200,
+          cursor: "pointer",
+          maxWidth: 200,
         }}
       >
-        {comfortMessage.comfort_text}
-      </div>
+        <div
+          className="pixel-box"
+          style={{
+            padding: "8px 12px",
+            fontSize: 11,
+            lineHeight: 1.6,
+            textAlign: "center",
+            whiteSpace: "pre-wrap",
+            position: "relative",
+          }}
+        >
+          {comfortMessage.comfort_text}
+        </div>
 
-      {/* pixel triangle pointing down */}
-      <div
-        style={{
-          width: 0,
-          height: 0,
-          margin: "0 auto",
-          borderLeft: "6px solid transparent",
-          borderRight: "6px solid transparent",
-          borderTop: "8px solid var(--pixel-border)",
-          position: "relative",
-          top: -1,
-        }}
-      />
-    </div>
+        <div
+          style={{
+            width: 0,
+            height: 0,
+            margin: "0 auto",
+            borderLeft: "6px solid transparent",
+            borderRight: "6px solid transparent",
+            borderTop: "8px solid var(--pixel-border)",
+            position: "relative",
+            top: -1,
+          }}
+        />
+      </div>
+    </>
   );
 }

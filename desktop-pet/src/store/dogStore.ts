@@ -17,6 +17,8 @@ export interface StatusData {
   daily_narrative?: string;
   stress_signals?: string[];
   message?: string;
+  feishu_ok?: boolean;
+  coin_ready?: boolean;
 }
 
 export interface ComfortMessage {
@@ -40,6 +42,10 @@ interface DogStore {
   statusData: StatusData | null;
   comfortMessage: ComfortMessage | null;
   connState: ConnState;
+  isHovering: boolean;
+  coinReady: boolean;
+  totalCoins: number;
+  unlockedSkins: number[];
   showAskPanel: boolean;
   showStatusBubble: boolean;
   showMoodSlider: boolean;
@@ -53,6 +59,10 @@ interface DogStore {
   setStatusData: (data: StatusData) => void;
   setComfortMessage: (msg: ComfortMessage | null) => void;
   setConnState: (state: ConnState) => void;
+  setIsHovering: (hovering: boolean) => void;
+  setCoinReady: (ready: boolean) => void;
+  setTotalCoins: (n: number) => void;
+  setUnlockedSkins: (skins: number[]) => void;
   setShowAskPanel: (show: boolean) => void;
   setShowStatusBubble: (show: boolean) => void;
   setShowMoodSlider: (show: boolean) => void;
@@ -67,6 +77,10 @@ export const useDogStore = create<DogStore>((set, get) => ({
   dogState: "walking",
   statusData: null,
   comfortMessage: null,
+  isHovering: false,
+  coinReady: false,
+  totalCoins: 0,
+  unlockedSkins: [1, 4, 8, 9],
   showAskPanel: false,
   showStatusBubble: false,
   showMoodSlider: false,
@@ -112,6 +126,10 @@ export const useDogStore = create<DogStore>((set, get) => ({
     if (show) set({ showDailyReport: true, showStatusBubble: false, showAskPanel: false, showMoodSlider: false, showContextMenu: false });
     else set({ showDailyReport: false });
   },
+  setIsHovering: (hovering) => set({ isHovering: hovering }),
+  setCoinReady: (ready) => set({ coinReady: ready }),
+  setTotalCoins: (n) => set({ totalCoins: n }),
+  setUnlockedSkins: (skins) => set({ unlockedSkins: skins }),
   setConnState: (state) => set({ connState: state }),
   setDogColor: (color) => set({ dogColor: color }),
 }));

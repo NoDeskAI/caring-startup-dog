@@ -119,174 +119,148 @@ bash "$(dirname "$0")/../scripts/install-desktop-pet.sh"
 初始化完成后，依次验证：
 1. `~/.创业狗/config.json` 存在且字段完整
 2. `~/.cursor/hooks.json` 或 `~/.claude/settings.json` 至少有一个包含 `activity-logger.sh`
-3. Cron 任务已注册
+3. Cron 任务已注册（通过 `openclaw cron list` 确认两条任务都存在）
 4. `/Applications/创业狗.app` 存在（如果执行了 Step 6）
 
 全部通过后告诉用户："创业狗初始化完成！你的像素狗已准备就绪。"
 
-## 操作流程 A：Cron 每小时触发
+### Cron 注册验证与自动修复
 
-### Step 1: 读取本地编码活动
+桌面宠物每次启动时会自动执行以下检查：
 
-```bash
-# 读取 activity.jsonl 中过去 1h 的条目
-ACTIVITY_FILE="$HOME/.创业狗/activity.jsonl"
-if [ -f "$ACTIVITY_FILE" ]; then
-  # 提取最近 1 小时的记录
-  ONE_HOUR_AGO=$(date -u -v-1H +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "1 hour ago" +"%Y-%m-%dT%H:%M:%SZ")
-  # 用 python 过滤时间范围
-  python3 -c "
-import json, sys
-from datetime import datetime, timedelta, timezone
-
-cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
-records = []
-with open('$ACTIVITY_FILE', 'r') as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-            ts = datetime.fromisoformat(rec['ts'].replace('Z', '+00:00'))
-            if ts >= cutoff:
-                records.append(rec)
-        except:
-            continue
-
-print(json.dumps(records, ensure_ascii=False, indent=2))
-"
-fi
-```
-
-### Step 2: 读取飞书消息
-
-使用飞书消息搜索 API（`user_access_token`）拉取过去 1h 的消息：
-
-- 使用 `/feishu search_messages` 接口
-- 时间范围：过去 1 小时
-- 包含用户发送和接收的所有消息
-- 提取：消息文本、发送者、时间戳、所在群聊
-
-### Step 3: 三源时间线合并
-
-将飞书消息时间戳 + Cursor/CC session 时间 → 合并为统一活跃时间线：
-
-```python
-# 伪代码：合并活跃区间
-intervals = []
-
-# 飞书消息：每条消息视为 1 分钟活跃
-for msg in feishu_messages:
-    intervals.append((msg.timestamp, msg.timestamp + 60s))
-
-# Cursor/CC sessions：完整区间
-for rec in activity_records:
-    if rec.event == "session_start":
-        # 找到对应的 session_end
-        intervals.append((rec.ts, session_end.ts))
-    elif rec.event == "prompt":
-        # 单个 prompt 视为 2 分钟活跃
-        intervals.append((rec.ts, rec.ts + 120s))
-
-# 合并重叠区间
-merged = merge_overlapping(intervals)
-
-# 计算连续工作时长（最大连续段，允许 30min gap）
-active_hours = calculate_continuous_hours(merged, gap_threshold=30*60)
-```
-
-### Step 4: LLM 情绪分析
-
-将飞书消息 + Cursor/CC prompts 文本合并，调用 LLM 进行批量分析。
-
-使用 `prompts/emotion-analysis.md` 中的 Prompt 模板。
-
-**注意：** 每次只做 1 次 LLM 调用，控制成本。将所有文本拼成一个 batch 输入。
-
-### Step 5: 写入状态
-
-将分析结果双写到两个位置：
-
-**本地状态文件 `~/.创业狗/status.json`：**
+1. **status.json 新鲜度检查**：`last_update` 距今是否 < 15 分钟
+2. **Cron 任务注册检查**：通过 `openclaw cron list` 确认 `data-collect`（*/10）和 `cron`（0 *）两条任务存在
+3. 如果任一检查失败 → 自动调用 OpenClaw 重新注册 Cron 并执行一次 data-collect
+4. 修复结果写入 `~/.创业狗/cron-verified.json`：
 
 ```json
 {
-  "last_update": "2026-03-17T15:00:00+08:00",
-  "emotion_score": -0.2,
-  "msg_count_1h": 35,
-  "prompt_count_1h": 12,
-  "active_hours": 2.5,
-  "work_summary": "处理了 2 个 PR review，修复了用户登录超时的 bug，和产品经理讨论了新功能排期"
+  "verified": true,
+  "timestamp": "2026-03-17T15:00:00+08:00",
+  "tasks": ["data-collect", "cron"]
 }
 ```
 
-狗的动画完全由用户自报心情（1-5）决定，`status.json` 不再包含 `energy` 字段。工作数据仅用于 LLM 生成安慰文案的上下文。
+**用户手动修复**：右键菜单 →"修复连接"可随时手动触发此检查流程。
 
-**飞书多维表格：** 追加一条新记录（可选，每日同步即可）。
+**自动修复仍失败时**：桌面宠物通过气泡告知用户"OpenClaw 可能没有启动"，引导用户检查 OpenClaw 进程。
 
-### Step 6: 狗的自言自语（无条件）
+## 操作流程 A：Cron 每小时触发
 
-每小时分析完成后，**无条件**写入 `~/.创业狗/comfort-message.json`，让狗说一句自言自语。这是陪伴感的核心——狗不是只有你累了才出来说话，而是一直在。
+> **执行原则：** 本流程分为 3 个阶段，每个阶段都是独立的。即使某个阶段失败，也要继续执行后续阶段，最后写入心跳文件记录完成情况。
 
-安慰话语使用 LLM 生成，以**伙伴狗视角**表达（代称规则：我们/你，必须提到具体工作内容）。语气自然随意，像朋友聊天一样，不要按固定格式。
+### 阶段一：数据采集（不调 LLM）
+
+1. 读取 `~/.创业狗/activity.jsonl` 中过去 1 小时的编码活动
+2. 使用飞书消息搜索 API 拉取过去 1h 的消息（文本 + 发送者 + 时间戳 + 群聊）
+3. 合并时间线，计算 `active_hours`（连续工作时长，允许 30min gap）
+4. 计算 `msg_count_1h`、`prompt_count_1h`
+
+如果飞书 API 失败，仅使用本地 activity 数据继续，不要中断。
+
+### 阶段二：LLM 分析（单次调用）
+
+使用 `prompts/emotion-analysis.md` 模板，**一次 LLM 调用**产出所有字段：
 
 ```json
 {
-  "timestamp": "2026-03-17T15:00:05+08:00",
-  "comfort_text": "走了好久~不快不慢的，挺舒服",
+  "emotion_score": 0.0,
+  "emotion_label": "neutral",
+  "stress_signals": [],
+  "work_summary": "...",
+  "hover_text": "...",
+  "daily_narrative": "...",
+  "comfort_message": "...",
+  "fun_pool": ["...", "...", "...", "...", "..."]
+}
+```
+
+**如果 LLM 调用失败**，使用降级值继续：
+```json
+{
+  "emotion_score": 0,
+  "emotion_label": "neutral",
+  "work_summary": null,
+  "hover_text": "走走走~",
+  "daily_narrative": null,
+  "comfort_message": "走了一会儿~",
+  "fun_pool": ["嘿嘿嘿嘿嘿", "刚才偷偷打了个哈欠", "地上有个影子...是我的尾巴", "你知道吗，蜗牛有四个鼻子", "*翻肚皮*"]
+}
+```
+
+### 阶段三：文件写入（全部完成后集中写入）
+
+LLM 输出拿到后（或使用降级值后），**依次写入以下文件**。每个文件写入失败不影响后续文件。
+
+**3a. 写入 `~/.创业狗/status.json`**（合并到现有内容）：
+
+```json
+{
+  "last_update": "<当前 ISO 时间>",
+  "emotion_score": <来自 LLM>,
+  "msg_count_1h": <来自阶段一>,
+  "prompt_count_1h": <来自阶段一>,
+  "active_hours": <来自阶段一>,
+  "work_summary": <来自 LLM>,
+  "hover_text": <来自 LLM>,
+  "daily_narrative": <来自 LLM>,
+  "feishu_ok": <飞书 API 是否成功>,
+  "coin_ready": true
+}
+```
+
+**3b. 写入 `~/.创业狗/comfort-message.json`**（无条件写入，让狗每小时说一句话）：
+
+```json
+{
+  "timestamp": "<当前 ISO 时间>",
+  "comfort_text": <来自 LLM comfort_message>,
   "choice": "hourly",
   "ttl_seconds": 15
 }
 ```
 
-**额外飞书推送**：仅当 `emotion_score < -0.4` 时，同时通过飞书私聊发送。
+如果 `emotion_score < -0.4`，同时通过飞书私聊发送 `comfort_message`。
 
-**注意：** 狗不"提醒"用户休息。狗只是表达自己的状态——"好困..."、"腿酸酸的..."——用户自己会做出判断。
-
-### Step 7: 写入 fun-pool（摸头内容池）
-
-LLM 输出的 `fun_pool` 字段是一个 5 条短文本的数组，用于用户"摸摸头"时零延迟显示。写入 `~/.创业狗/fun-pool.json`，**整体替换**（不累积）：
+**3c. 写入 `~/.创业狗/fun-pool.json`**（整体替换）：
 
 ```json
-[
-  "刚才偷偷咬了一下你的鞋带...被发现了",
-  "你知道吗，章鱼有三个心脏",
-  "窗外那朵云...好像一只鸡腿",
-  "下午的阳光晒到尾巴了，暖暖的",
-  "*翻肚皮* 再摸！"
-]
+<来自 LLM fun_pool，恰好 5 条字符串>
 ```
 
-这些文本**与工作完全无关**——是"需求 B：被抽离"的核心载体。用户摸头 = "我想暂时离开一下"，产品尊重这个信号。每小时刷新一次，是"又工作了一小时"的小奖励。
+**3d. 凌晨 4 点时额外写入 `~/.创业狗/daily-schedule.json`**：
 
-### Step 8: 清理已处理数据
+仅当当前小时 == 4 时执行。生成 3 个随机狗信触发时间：
+- 分布在 9:00-22:00，相邻间隔 ≥ 2h，避开 12:00-13:00
 
-```bash
-# 保留最近 2 小时的数据，清理更早的
-python3 -c "
-import json
-from datetime import datetime, timedelta, timezone
-
-cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
-kept = []
-with open('$HOME/.创业狗/activity.jsonl', 'r') as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rec = json.loads(line)
-            ts = datetime.fromisoformat(rec['ts'].replace('Z', '+00:00'))
-            if ts >= cutoff:
-                kept.append(line)
-        except:
-            continue
-
-with open('$HOME/.创业狗/activity.jsonl', 'w') as f:
-    f.write('\n'.join(kept) + '\n' if kept else '')
-"
+```json
+{
+  "date": "<今日日期>",
+  "dog_mail_times": ["10:23", "14:47", "19:05"],
+  "dog_mail_sent": [false, false, false],
+  "diary_sent": false
+}
 ```
+
+**3e. 清理 `~/.创业狗/activity.jsonl`**（保留最近 2 小时的条目）。
+
+### 阶段四：写入心跳（最后一步，必须执行）
+
+**无论前面哪些步骤成功或失败**，最后都要写入 `~/.创业狗/cron-heartbeat.json`：
+
+```json
+{
+  "ts": "<当前 ISO 时间>",
+  "flow": "hourly",
+  "status_written": true,
+  "comfort_written": true,
+  "funpool_written": true,
+  "coin_ready_set": true,
+  "llm_ok": true
+}
+```
+
+其中每个 `*_written` / `*_ok` 字段反映该步骤是否实际成功。桌面宠物监听此文件来验证 cron 运行状态。
 
 ## 操作流程 B：用户"在干嘛"触发（需求 A：被看见）
 
@@ -413,9 +387,21 @@ fi
 
 1. 读取 `~/.创业狗/activity.jsonl` 最近 10 分钟的条目
 2. 使用飞书 API 拉取最近 10 分钟的新消息数量（仅计数，不做内容分析）
-3. 写回 `status.json`（更新 `msg_count_1h`、`prompt_count_1h`、`active_hours`、`last_update` 字段）
+3. 写回 `status.json`，包含以下字段：
+   - `msg_count_1h`、`prompt_count_1h`、`active_hours`、`last_update`
+   - `feishu_ok`（布尔值）：飞书 API 调用成功写 `true`，授权失败或请求报错写 `false`。桌面宠物据此显示飞书连接状态指示灯
 
 桌面宠物会监听 `status.json` 变化，自动将每个快照写入本地 `work_snapshot` 表，用于日报叙事和 LLM 上下文。
+
+4. **飞书狗信检查**：读取 `~/.创业狗/daily-schedule.json`，检查当前时间是否命中某个 `dog_mail_times` 且对应 `dog_mail_sent` 为 `false`（容差 ±5 分钟）。命中则：
+   - 调用 LLM 生成狗的话（使用 `prompts/dog-mail.md` 模板，基于当前工作数据）
+   - 通过飞书私聊发送，格式："你的狗刚拜托我告诉你：{狗的话}"
+   - 将对应 `dog_mail_sent` 项设为 `true`
+
+5. **日终日记推送**：如果当前时间 > 21:00 且 `daily-schedule.json` 中 `diary_sent` 为 `false` 且今日有活跃数据（`active_hours > 0`），则：
+   - 调用 LLM 生成狗视角的一天回顾（使用 `prompts/daily-diary.md` 模板）
+   - 通过飞书私聊发送，格式："你的狗写了今天的日记：\n\n{日记内容}\n\n今天收集了 X 枚金币"
+   - 将 `diary_sent` 设为 `true`
 
 ## LLM 生成的两个维度
 

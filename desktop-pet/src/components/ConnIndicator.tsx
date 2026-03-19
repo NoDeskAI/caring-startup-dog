@@ -7,59 +7,46 @@ const DOT_COLORS: Record<ConnStatus, string> = {
   off: "#f87171",
 };
 
-const LABELS: Record<ConnStatus, string> = {
-  ok: "OK",
-  stale: "...",
-  off: "OFF",
-};
-
-function Dot({ status, label }: { status: ConnStatus; label: string }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 3,
-        fontSize: 9,
-        color: "var(--pixel-text-light)",
-        opacity: 0.85,
-      }}
-    >
-      <span
-        style={{
-          display: "inline-block",
-          width: 6,
-          height: 6,
-          borderRadius: 1,
-          background: DOT_COLORS[status],
-          boxShadow: status === "ok" ? `0 0 4px ${DOT_COLORS[status]}` : "none",
-        }}
-      />
-      {label}
-      <span style={{ fontSize: 8, opacity: 0.7 }}>{LABELS[status]}</span>
-    </span>
-  );
-}
-
 export function ConnIndicator() {
   const { openclaw, feishu } = useDogStore((s) => s.connState);
+  const isHovering = useDogStore((s) => s.isHovering);
+
+  if (!isHovering) return null;
 
   return (
     <div
       style={{
         position: "absolute",
-        bottom: 4,
-        left: 6,
+        top: 355,
+        left: 95,
         display: "flex",
-        gap: 8,
-        fontFamily: "var(--pixel-font)",
+        flexDirection: "column",
+        gap: 3,
         pointerEvents: "none",
         zIndex: 5,
         userSelect: "none",
       }}
     >
-      <Dot status={openclaw} label="OC" />
-      <Dot status={feishu} label="FS" />
+      <span
+        style={{
+          display: "block",
+          width: 4,
+          height: 4,
+          borderRadius: 1,
+          background: DOT_COLORS[openclaw],
+          boxShadow: openclaw === "ok" ? `0 0 3px ${DOT_COLORS[openclaw]}` : "none",
+        }}
+      />
+      <span
+        style={{
+          display: "block",
+          width: 4,
+          height: 4,
+          borderRadius: 1,
+          background: DOT_COLORS[feishu],
+          boxShadow: feishu === "ok" ? `0 0 3px ${DOT_COLORS[feishu]}` : "none",
+        }}
+      />
     </div>
   );
 }

@@ -10,7 +10,7 @@ export interface DogStateConfig {
 
 export const SPRITE_COLS = 8;
 export const FRAME_WIDTH = 64;
-export const FRAME_HEIGHT = 48;
+export const FRAME_HEIGHT = 51;
 
 export const DOG_STATES: Record<string, DogStateConfig> = {
   running: {

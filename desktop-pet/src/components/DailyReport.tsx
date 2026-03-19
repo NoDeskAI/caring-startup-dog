@@ -186,7 +186,7 @@ export function DailyReport() {
       />
       <div
         data-daily-report
-        className="pixel-box"
+        className="pixel-box hide-scrollbar"
         style={{
           position: "absolute",
           left: "50%",

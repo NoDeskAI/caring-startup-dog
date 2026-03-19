@@ -5,11 +5,17 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { currentMonitor } from "@tauri-apps/api/window";
 import { DogScene } from "./scenes/DogScene";
 import { useDogStore } from "./store/dogStore";
+import { addCoin, getTotalCoins } from "./db";
+import { triggerPetHead } from "./services/localAnalysis";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
+import { getBasePath } from "./db";
 
 const CANVAS_W = 400;
 const CANVAS_H = 450;
 
-const HIT_AREA = { x: 60, y: 250, w: 280, h: 200 };
+const HIT_AREA = { x: 100, y: 260, w: 200, h: 160 };
 const DEAD_ZONE = 4;
 const POLL_INTERVAL = 80;
 
@@ -40,6 +46,12 @@ export function PhaserWrapper() {
   const setShowStatusBubble = useDogStore((s) => s.setShowStatusBubble);
   const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
   const setShowContextMenu = useDogStore((s) => s.setShowContextMenu);
+  const setIsHovering = useDogStore((s) => s.setIsHovering);
+  const coinReady = useDogStore((s) => s.coinReady);
+  const setCoinReady = useDogStore((s) => s.setCoinReady);
+  const setComfortMessage = useDogStore((s) => s.setComfortMessage);
+  const setTotalCoins = useDogStore((s) => s.setTotalCoins);
+  const coinDroppedRef = useRef(false);
 
   const showMoodSlider = useDogStore((s) => s.showMoodSlider);
   const showAskPanel = useDogStore((s) => s.showAskPanel);
@@ -92,6 +104,7 @@ export function PhaserWrapper() {
         const [x, y] = pos;
         if (isInHitArea(x, y)) {
           inHitRef.current = true;
+          useDogStore.getState().setIsHovering(true);
           gameRef.current?.events.emit("set-hover", true);
           applyPassthrough(false);
           stopPolling();
@@ -124,7 +137,7 @@ export function PhaserWrapper() {
     sceneRef.current = scene;
 
     const game = new Phaser.Game({
-      type: Phaser.CANVAS,
+      type: Phaser.WEBGL,
       width: CANVAS_W,
       height: CANVAS_H,
       parent: containerRef.current,
@@ -151,6 +164,7 @@ export function PhaserWrapper() {
 
       if (hit !== inHitRef.current) {
         inHitRef.current = hit;
+        setIsHovering(hit);
         gameRef.current?.events.emit("set-hover", hit);
 
         if (hit) {
@@ -176,6 +190,7 @@ export function PhaserWrapper() {
     const onLeave = () => {
       if (dragRef.current?.dragging) return;
       inHitRef.current = false;
+      setIsHovering(false);
       gameRef.current?.events.emit("set-hover", false);
       if (hoverTimerRef.current) {
         clearTimeout(hoverTimerRef.current);
@@ -193,7 +208,7 @@ export function PhaserWrapper() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseleave", onLeave);
     };
-  }, [setPassthrough, setShowStatusBubble]);
+  }, [setPassthrough, setShowStatusBubble, setIsHovering]);
 
   useEffect(() => {
     if (anyPopupOpen) {
@@ -250,6 +265,7 @@ export function PhaserWrapper() {
           hoverTimerRef.current = null;
         }
         setShowStatusBubble(false);
+        setIsHovering(false);
         gameRef.current?.events.emit("set-hover", false);
       }
 
@@ -258,7 +274,7 @@ export function PhaserWrapper() {
         y: dragRef.current.startWinY + dy,
       });
     },
-    [setShowStatusBubble]
+    [setShowStatusBubble, setIsHovering]
   );
 
   const onPointerUp = useCallback(
@@ -297,6 +313,67 @@ export function PhaserWrapper() {
     if (sceneRef.current) sceneRef.current.switchDogColor(dogColor);
   }, [dogColor]);
 
+  useEffect(() => {
+    if (coinReady && sceneRef.current && !coinDroppedRef.current) {
+      coinDroppedRef.current = true;
+      sceneRef.current.dropCoin();
+    }
+  }, [coinReady]);
+
+  const handleCoinClick = useCallback(async () => {
+    if (!sceneRef.current) return;
+    const collected = sceneRef.current.collectCoin();
+    if (!collected) return;
+
+    coinDroppedRef.current = false;
+    setCoinReady(false);
+
+    try {
+      const base = await getBasePath();
+      const statusPath = await join(base, "status.json");
+      const raw = await readTextFile(statusPath);
+      const data = JSON.parse(raw);
+      data.coin_ready = false;
+      await writeTextFile(statusPath, JSON.stringify(data, null, 2));
+    } catch { /* ignore */ }
+
+    try {
+      await addCoin("hourly");
+      const total = await getTotalCoins();
+      setTotalCoins(total);
+    } catch (err) {
+      console.error("[coin] failed to save:", err);
+    }
+
+    setComfortMessage({
+      timestamp: "_thinking_",
+      comfort_text: "叼了个亮晶晶的东西回来...",
+      choice: "coin",
+      ttl_seconds: 60,
+    });
+
+    try {
+      const msg = await triggerPetHead();
+      if (msg) {
+        setComfortMessage(msg);
+      } else {
+        setComfortMessage({
+          timestamp: new Date().toISOString(),
+          comfort_text: "给你带了个好东西！",
+          choice: "coin",
+          ttl_seconds: 10,
+        });
+      }
+    } catch {
+      setComfortMessage({
+        timestamp: new Date().toISOString(),
+        comfort_text: "嘿嘿，闪闪发光的！",
+        choice: "coin",
+        ttl_seconds: 10,
+      });
+    }
+  }, [setCoinReady, setComfortMessage, setTotalCoins]);
+
   return (
     <>
       <div
@@ -326,6 +403,22 @@ export function PhaserWrapper() {
         onPointerUp={onPointerUp}
         onContextMenu={onContextMenu}
       />
+      {coinReady && (
+        <div
+          id="coin-area"
+          onClick={handleCoinClick}
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            left: 224,
+            top: 334,
+            width: 72,
+            height: 72,
+            cursor: "pointer",
+            zIndex: 15,
+          }}
+        />
+      )}
     </>
   );
 }

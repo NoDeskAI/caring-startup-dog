@@ -18,13 +18,81 @@ export async function getDb(): Promise<Database> {
   return db;
 }
 
+const DEFAULT_UNLOCKED_SKINS = [1, 4, 8, 9];
+
 export async function initDb(): Promise<void> {
   try {
-    await getDb();
+    const d = await getDb();
+    await d.execute(
+      "CREATE TABLE IF NOT EXISTS coin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL DEFAULT (datetime('now','localtime')), source TEXT NOT NULL DEFAULT 'hourly')"
+    );
+    await d.execute(
+      "CREATE TABLE IF NOT EXISTS skin_unlock (id INTEGER PRIMARY KEY AUTOINCREMENT, skin_id INTEGER NOT NULL UNIQUE, unlocked_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))"
+    );
+    for (const skinId of DEFAULT_UNLOCKED_SKINS) {
+      await d.execute(
+        "INSERT OR IGNORE INTO skin_unlock (skin_id) VALUES (?)",
+        [skinId]
+      );
+    }
     console.log("[db] connection ready");
   } catch (err) {
     console.error("[db] init failed:", err);
   }
+}
+
+// ── coin_log ──
+
+export async function addCoin(source: string = "hourly"): Promise<void> {
+  const d = await getDb();
+  await d.execute("INSERT INTO coin_log (source) VALUES (?)", [source]);
+}
+
+export async function getTotalCoins(): Promise<number> {
+  const d = await getDb();
+  const earned = await d.select<Array<{ cnt: number }>>(
+    "SELECT COUNT(*) as cnt FROM coin_log WHERE source NOT LIKE 'spend_%'"
+  );
+  const spent = await d.select<Array<{ cnt: number }>>(
+    "SELECT COUNT(*) as cnt FROM coin_log WHERE source LIKE 'spend_%'"
+  );
+  return (earned[0]?.cnt ?? 0) - (spent[0]?.cnt ?? 0);
+}
+
+export async function getTodayCoins(): Promise<number> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ cnt: number }>>(
+    `SELECT COUNT(*) as cnt FROM coin_log WHERE ${TODAY_SQL}`
+  );
+  return rows[0]?.cnt ?? 0;
+}
+
+// ── skin_unlock ──
+
+export async function getUnlockedSkins(): Promise<number[]> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ skin_id: number }>>(
+    "SELECT skin_id FROM skin_unlock ORDER BY skin_id ASC"
+  );
+  return rows.map((r) => r.skin_id);
+}
+
+export async function unlockSkin(skinId: number, cost: number): Promise<boolean> {
+  const d = await getDb();
+  const available = await getTotalCoins();
+  if (available < cost) return false;
+
+  await d.execute(
+    "INSERT OR IGNORE INTO skin_unlock (skin_id) VALUES (?)",
+    [skinId]
+  );
+  for (let i = 0; i < cost; i++) {
+    await d.execute(
+      "INSERT INTO coin_log (source) VALUES (?)",
+      [`spend_skin_${skinId}`]
+    );
+  }
+  return true;
 }
 
 export interface MoodLogEntry {

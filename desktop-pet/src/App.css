@@ -44,6 +44,9 @@ html, body, #root {
   overflow: hidden;
   background: transparent;
   font-family: var(--pixel-font);
+}
+
+.pixel-text {
   image-rendering: pixelated;
 }
 
@@ -57,6 +60,9 @@ html, body, #root {
 
 canvas {
   background: transparent !important;
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
 .pixel-box {
@@ -89,6 +95,14 @@ canvas {
 
 .pixel-btn:active {
   transform: translateY(1px);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .pixel-btn.selected {

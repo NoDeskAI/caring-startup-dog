@@ -21,22 +21,6 @@ export function AskPanel() {
   const showAskPanel = useDogStore((s) => s.showAskPanel);
   const setShowAskPanel = useDogStore((s) => s.setShowAskPanel);
   const setUserMood = useDogStore((s) => s.setUserMood);
-  useEffect(() => {
-    if (!showAskPanel) return;
-    const dismiss = (e: PointerEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-ask-panel]")) return;
-      setShowAskPanel(false);
-    };
-    const timer = setTimeout(() => {
-      window.addEventListener("pointerdown", dismiss);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointerdown", dismiss);
-    };
-  }, [showAskPanel, setShowAskPanel]);
-
   if (!showAskPanel) return null;
 
   async function handleChoice(choice: Choice) {
@@ -73,20 +57,25 @@ export function AskPanel() {
   }
 
   return (
-    <div
-      data-ask-panel
-      className="pixel-box"
-      style={{
-        position: "absolute",
-        left: "50%",
-        transform: "translateX(-50%)",
-        bottom: 175,
-        padding: "10px 12px",
-        zIndex: 300,
-        width: 160,
-        textAlign: "center",
-      }}
-    >
+    <>
+      <div
+        onClick={() => setShowAskPanel(false)}
+        style={{ position: "fixed", inset: 0, zIndex: 299 }}
+      />
+      <div
+        data-ask-panel
+        className="pixel-box"
+        style={{
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          bottom: 175,
+          padding: "10px 12px",
+          zIndex: 300,
+          width: 160,
+          textAlign: "center",
+        }}
+      >
       <div style={{ fontSize: 11, fontWeight: "bold", marginBottom: 8 }}>
         我现在...
       </div>
@@ -108,5 +97,6 @@ export function AskPanel() {
         </button>
       ))}
     </div>
+    </>
   );
 }

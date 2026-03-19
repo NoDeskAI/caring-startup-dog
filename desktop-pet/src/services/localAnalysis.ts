@@ -255,6 +255,132 @@ export async function getRandomFunText(): Promise<string> {
   return source[Math.floor(Math.random() * source.length)];
 }
 
+// ── Cron Verification ──
+
+interface CronJob {
+  id: string;
+  name: string;
+  enabled: boolean;
+  state?: {
+    lastRunStatus?: string;
+    consecutiveErrors?: number;
+  };
+}
+
+async function runShell(script: string): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    const cmd = Command.create("exec-sh", ["-c", script]);
+    cmd.on("close", (data) => resolve({ code: data.code, stdout, stderr }));
+    cmd.on("error", (err) => {
+      stderr += String(err);
+      resolve({ code: 1, stdout, stderr });
+    });
+    cmd.stdout.on("data", (line) => { stdout += line; });
+    cmd.stderr.on("data", (line) => { stderr += line; });
+    cmd.spawn();
+  });
+}
+
+const OC_PATH_PREFIX = 'export PATH="$HOME/.deskclaw/node/bin:$PATH"';
+
+async function listCronJobs(): Promise<CronJob[]> {
+  const { code, stdout } = await runShell(`${OC_PATH_PREFIX} && openclaw cron list --json`);
+  if (code !== 0) return [];
+  try {
+    const data = JSON.parse(stdout);
+    return (data.jobs || []) as CronJob[];
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureCron(): Promise<boolean> {
+  console.log("[cron-repair] checking cron jobs...");
+
+  try {
+    const jobs = await listCronJobs();
+    const dataCollect = jobs.find((j) => j.name.includes("数据采集"));
+    const hourlyAnalysis = jobs.find((j) => j.name.includes("完整分析"));
+
+    if (!dataCollect || !hourlyAnalysis) {
+      console.warn("[cron-repair] missing cron jobs", {
+        dataCollect: !!dataCollect,
+        hourlyAnalysis: !!hourlyAnalysis,
+      });
+      const { code } = await runShell(
+        `${OC_PATH_PREFIX} && openclaw agent --agent main --message '请重新注册 caring-startup-dog skill 的两个 cron 任务（每10分钟数据采集 + 每小时完整分析），参考 SKILL.md 的 Cron 配置部分。'`
+      );
+      return code === 0;
+    }
+
+    const repairs: Promise<{ code: number; stdout: string; stderr: string }>[] = [];
+
+    if (!dataCollect.enabled) {
+      console.log("[cron-repair] re-enabling data-collect");
+      repairs.push(runShell(`${OC_PATH_PREFIX} && openclaw cron edit ${dataCollect.id} --enable`));
+    }
+    if (!hourlyAnalysis.enabled) {
+      console.log("[cron-repair] re-enabling hourly-analysis");
+      repairs.push(runShell(`${OC_PATH_PREFIX} && openclaw cron edit ${hourlyAnalysis.id} --enable`));
+    }
+    if (repairs.length > 0) await Promise.all(repairs);
+
+    const isError = hourlyAnalysis.state?.lastRunStatus === "error";
+    if (isError) {
+      console.log("[cron-repair] hourly cron in error state, triggering run...");
+    }
+
+    console.log("[cron-repair] triggering immediate cron run...");
+    const basePath = await getBasePath();
+    const heartbeatPath = await join(basePath, "cron-heartbeat.json");
+    const statusPath = await join(basePath, "status.json");
+
+    let beforeHbTs: string | null = null;
+    let beforeStatusTs: string | null = null;
+    try {
+      const raw = await readTextFile(heartbeatPath);
+      const hb = JSON.parse(raw) as Record<string, string>;
+      beforeHbTs = hb.ts || hb.timestamp || null;
+    } catch { /* noop */ }
+    try {
+      const raw = await readTextFile(statusPath);
+      beforeStatusTs = (JSON.parse(raw) as { last_update?: string }).last_update || null;
+    } catch { /* noop */ }
+
+    await runShell(`${OC_PATH_PREFIX} && openclaw cron run ${hourlyAnalysis.id}`);
+
+    const POLL_INTERVAL = 10_000;
+    const MAX_POLLS = 40;
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+      try {
+        const hbRaw = await readTextFile(heartbeatPath);
+        const hb = JSON.parse(hbRaw) as Record<string, string>;
+        const hbTs = hb.ts || hb.timestamp || null;
+        if (hbTs && hbTs !== beforeHbTs) {
+          console.log("[cron-repair] heartbeat updated — repair succeeded");
+          return true;
+        }
+      } catch { /* retry */ }
+      try {
+        const stRaw = await readTextFile(statusPath);
+        const st = JSON.parse(stRaw) as { last_update?: string };
+        if (st.last_update && st.last_update !== beforeStatusTs) {
+          console.log("[cron-repair] status.json updated — cron ran (heartbeat may lag)");
+          return true;
+        }
+      } catch { /* retry */ }
+    }
+    console.warn("[cron-repair] timed out waiting for heartbeat/status update");
+    return false;
+  } catch (err) {
+    console.error("[cron-repair] failed:", err);
+    return false;
+  }
+}
+
 // ── Detect work mode from current StatusData (for watcher use) ──
 
 export function detectWorkModeFromStatus(

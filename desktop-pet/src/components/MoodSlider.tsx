@@ -26,22 +26,6 @@ export function MoodSlider() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!showMoodSlider) return;
-    const dismiss = (e: PointerEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-mood-panel]")) return;
-      setShowMoodSlider(false);
-    };
-    const timer = setTimeout(() => {
-      window.addEventListener("pointerdown", dismiss);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointerdown", dismiss);
-    };
-  }, [showMoodSlider, setShowMoodSlider]);
-
   const currentMood = MOOD_LEVELS[sliderValue - 1];
 
   const handleSubmit = useCallback(async () => {
@@ -73,10 +57,15 @@ export function MoodSlider() {
   if (!showMoodSlider) return null;
 
   return (
-    <div
-      data-mood-panel
-      className="pixel-box"
-      style={{
+    <>
+      <div
+        onClick={() => setShowMoodSlider(false)}
+        style={{ position: "fixed", inset: 0, zIndex: 299 }}
+      />
+      <div
+        data-mood-panel
+        className="pixel-box"
+        style={{
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
@@ -163,5 +152,6 @@ export function MoodSlider() {
         </div>
       )}
     </div>
+    </>
   );
 }
