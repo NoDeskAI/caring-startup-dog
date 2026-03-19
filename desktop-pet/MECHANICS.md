@@ -23,20 +23,20 @@
 | 机制 | 频率 | 逻辑 |
 |------|------|------|
 | **AskPanel 主动询问** | 每 2 小时 | 弹窗问"我现在..."，3 个选项（精力充沛/有点累/好困），选择后记入 DB |
-| **status.json 监听** | 实时（file watch / 10s 轮询 fallback） | OpenClaw cron 写入的状态数据，更新 energy、work_summary、hover_text 等 |
+| **status.json 监听** | 实时（file watch / 10s 轮询 fallback） | OpenClaw cron 写入的状态数据，更新 work_summary、hover_text 等 |
 | **comfort-message.json 监听** | 实时 | OpenClaw cron 写入的安慰消息，显示为气泡 |
 | **连接状态刷新** | 每 1 分钟 | 根据 status.json 的 last_update 推算 OpenClaw/飞书连通性 |
 | **work_snapshot 存储** | 每次 status.json 更新 | 将工作数据写入本地 SQLite，按 last_update 去重 |
 
 ## 状态决定
 
-- **狗的动画** = 纯粹由用户心情（mood 1-5）决定，无能量上限
+- **狗的动画** = 纯粹由用户心情（mood 1-5）决定
   - 5 → running（冲冲冲）
   - 4 → walking（走走走）
   - 3 → a_bit_tired（有点累）
   - 2 → resting（歇会儿）
   - 1 → sleeping（zzZ）
-- **energy** 仅用于后台触发安慰消息和 cron 行为，不影响动画
+- 无 energy 计算。工作数据（消息数、prompt 数、连续工作时长）仅作为 LLM 生成安慰文案的上下文
 
 ## 日期边界
 
@@ -46,13 +46,13 @@
 
 | 位置 | 内容 |
 |------|------|
-| `~/.创业狗/status.json` | OpenClaw cron 输出：energy、消息数、工作摘要、hover_text、daily_narrative |
+| `~/.创业狗/status.json` | OpenClaw cron 输出：消息数、prompt 数、工作摘要、hover_text、daily_narrative |
 | `~/.创业狗/comfort-message.json` | OpenClaw 生成的安慰消息 |
 | `~/.创业狗/fun-pool.json` | cron 预生成的 5 条趣味文案（摸摸头用） |
 | `~/.创业狗/user-response.json` | AskPanel 用户选择，供 OpenClaw 读取 |
 | `~/.创业狗/activity.jsonl` | Cursor/Claude Code hooks 写入的编码活动日志 |
 | SQLite `dog.db` → `mood_log` | 心情记录（来源：user_click / ask_response） |
-| SQLite `dog.db` → `work_snapshot` | 定期工作快照（energy、消息数、prompt 数、工作模式） |
+| SQLite `dog.db` → `work_snapshot` | 定期工作快照（消息数、prompt 数、工作模式、工作摘要） |
 | SQLite `dog.db` → `daily_summary` | 每日汇总（暂未使用） |
 
 ## 窗口穿透

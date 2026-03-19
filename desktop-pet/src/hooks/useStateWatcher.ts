@@ -62,7 +62,6 @@ export function useStateWatcher() {
             const recent = await getRecentSnapshots(1);
             const mode = detectWorkModeFromStatus(data, recent);
             await saveWorkSnapshot({
-              energy: data.energy,
               msg_count: data.msg_count_1h,
               prompt_count: data.prompt_count_1h,
               active_hours: data.active_hours,

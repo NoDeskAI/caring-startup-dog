@@ -21,8 +21,6 @@ export function AskPanel() {
   const showAskPanel = useDogStore((s) => s.showAskPanel);
   const setShowAskPanel = useDogStore((s) => s.setShowAskPanel);
   const setUserMood = useDogStore((s) => s.setUserMood);
-  const energy = useDogStore((s) => s.energy);
-
   useEffect(() => {
     if (!showAskPanel) return;
     const dismiss = (e: PointerEvent) => {
@@ -51,7 +49,6 @@ export function AskPanel() {
         dog_state: choice.value,
         emotion_score: choice.emotionScore,
         emotion_label: choice.label,
-        energy,
       });
     } catch (err) {
       console.error("Failed to log mood:", err);

@@ -5,7 +5,6 @@ import type { DogStateName } from "../config/dog-states";
 export interface StatusData {
   user?: string;
   last_update: string;
-  energy: number;
   dog_state?: DogStateName;
   emotion_score?: number;
   emotion_label?: string;
@@ -18,7 +17,6 @@ export interface StatusData {
   daily_narrative?: string;
   stress_signals?: string[];
   message?: string;
-  comfort_trigger?: boolean;
 }
 
 export interface ComfortMessage {
@@ -37,7 +35,6 @@ export interface ConnState {
 }
 
 interface DogStore {
-  energy: number;
   userMood: number;
   dogState: DogStateName;
   statusData: StatusData | null;
@@ -51,7 +48,6 @@ interface DogStore {
   showDailyReport: boolean;
   dogColor: number;
 
-  setEnergy: (energy: number) => void;
   setUserMood: (mood: number) => void;
   setDogState: (state: DogStateName) => void;
   setStatusData: (data: StatusData) => void;
@@ -67,7 +63,6 @@ interface DogStore {
 }
 
 export const useDogStore = create<DogStore>((set, get) => ({
-  energy: 100,
   userMood: 3,
   dogState: "walking",
   statusData: null,
@@ -81,19 +76,12 @@ export const useDogStore = create<DogStore>((set, get) => ({
   connState: { openclaw: "off", feishu: "off", lastCheck: 0 },
   dogColor: DEFAULT_DOG_COLOR,
 
-  setEnergy: (energy) => {
-    set({ energy });
-  },
   setUserMood: (mood) => {
     set({ userMood: mood, dogState: resolveDogState(mood) });
   },
   setDogState: (state) => set({ dogState: state }),
   setStatusData: (data) => {
-    const energy = data.energy ?? get().energy;
-    set({
-      statusData: data,
-      energy,
-    });
+    set({ statusData: data });
   },
   setComfortMessage: (msg) => {
     if (msg) {

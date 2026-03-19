@@ -44,11 +44,9 @@ export function detectWorkMode(snapshots: WorkSnapshot[]): WorkMode {
   const avgMsgs = totalMsgs / recent.length;
 
   if (recent.length >= 2) {
-    const firstEnergy = recent[0].energy ?? 100;
-    const lastEnergy = recent[recent.length - 1].energy ?? 100;
     const allLow = avgPrompts < 1 && avgMsgs < 3;
-    if (allLow && lastEnergy >= firstEnergy) return "resting";
-    if (avgPrompts < 2 && avgMsgs < 3 && lastEnergy < firstEnergy) return "winding_down";
+    if (allLow) return "resting";
+    if (avgPrompts < 2 && avgMsgs < 3) return "winding_down";
   }
 
   const highPrompts = avgPrompts >= 3;
@@ -190,9 +188,9 @@ export async function triggerLLMComfort(ctx: LLMContext): Promise<void> {
       "按照 caring-startup-dog skill 的操作流程 B 执行。",
       "读取 ~/.创业狗/user-response.json 中的 llm_context。",
       "使用 prompts/comfort-response.md 模板生成安慰话语。",
-      "核心视角规则：狗是用户的创业伙伴。代称规则——'我们'用于共同经历的辛苦过程和休息提议（如'我们下去遛遛吧'），'你'用于赞美和鼓励。狗没有独立需求，不说'我饿了''我困了'。",
-      "comfort_text 必须优先提到 work_summary 中的飞书事务（项目讨论、客户对接、团队协作），其次才是编码内容。飞书是第一优先级，Cursor/CC是第二优先级。不要空泛。",
-      "不汇报原始数据，不说教，不用 emoji。",
+      "核心视角：狗是创业伙伴，'我们'用于共同经历和休息提议，'你'用于赞美。狗没有独立需求。",
+      "必须提到 work_summary 中的具体事务，飞书优先，编码其次。",
+      "语气自然随意，不要按固定格式输出，语序自由调整，像朋友聊天一样。不说教，不PUA，不用emoji。",
       "将结果写入 ~/.创业狗/comfort-message.json（格式：{timestamp, comfort_text, choice, ttl_seconds: 15}）。",
       "然后将 user-response.json 中 processed 设为 true。",
     ].join(" ");
@@ -266,7 +264,7 @@ export function detectWorkModeFromStatus(
   const pseudo: WorkSnapshot = {
     id: 0,
     ts: new Date().toISOString(),
-    energy: data.energy,
+    energy: null,
     msg_count: data.msg_count_1h,
     prompt_count: data.prompt_count_1h,
     active_hours: data.active_hours,

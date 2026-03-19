@@ -22,7 +22,6 @@ export function MoodSlider() {
   const showMoodSlider = useDogStore((s) => s.showMoodSlider);
   const setShowMoodSlider = useDogStore((s) => s.setShowMoodSlider);
   const setUserMood = useDogStore((s) => s.setUserMood);
-  const energy = useDogStore((s) => s.energy);
   const [sliderValue, setSliderValue] = useState(3);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +59,6 @@ export function MoodSlider() {
         dog_state: resolvedState,
         emotion_score: mood.score,
         emotion_label: mood.label,
-        energy,
       });
       setSubmitting(false);
       setShowMoodSlider(false);
@@ -70,7 +68,7 @@ export function MoodSlider() {
       setError(msg);
       setSubmitting(false);
     }
-  }, [sliderValue, submitting, setUserMood, setShowMoodSlider, energy]);
+  }, [sliderValue, submitting, setUserMood, setShowMoodSlider]);
 
   if (!showMoodSlider) return null;
 
