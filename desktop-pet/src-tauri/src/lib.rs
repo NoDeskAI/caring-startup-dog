@@ -143,6 +143,14 @@ pub fn run() {
                     (sh - 500) as f64,
                 ));
             }
+
+            let win = window.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                let _ = win.show();
+                let _ = win.set_focus();
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())

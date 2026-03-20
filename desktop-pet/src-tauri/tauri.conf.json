@@ -20,7 +20,8 @@
         "alwaysOnTop": true,
         "resizable": false,
         "skipTaskbar": true,
-        "shadow": false
+        "shadow": false,
+        "visible": false
       }
     ],
     "macOSPrivateApi": true,

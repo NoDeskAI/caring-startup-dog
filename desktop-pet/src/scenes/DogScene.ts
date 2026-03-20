@@ -12,11 +12,12 @@ export class DogScene extends Phaser.Scene {
   private dog!: Phaser.GameObjects.Sprite;
   private bubble?: Phaser.GameObjects.Sprite;
   private coin?: Phaser.GameObjects.Image;
-  private coinTween?: Phaser.Tweens.Tween;
   private coinVisible = false;
   private currentState: DogStateName = "running";
   private dogColor: number = DEFAULT_DOG_COLOR;
   private assetsLoaded = false;
+  private loadRetries = 0;
+  private readonly MAX_RETRIES = 3;
 
   constructor() {
     super("DogScene");
@@ -60,6 +61,17 @@ export class DogScene extends Phaser.Scene {
 
     if (needsLoad) {
       this.load.once("complete", () => this.onAssetsLoaded());
+      this.load.on("loaderror", (file: { key: string }) => {
+        console.error("[DogScene] failed to load:", file.key);
+        if (this.loadRetries < this.MAX_RETRIES) {
+          this.loadRetries++;
+          console.log(`[DogScene] retry ${this.loadRetries}/${this.MAX_RETRIES}...`);
+          this.time.delayedCall(500 * this.loadRetries, () => {
+            this.load.removeAllListeners();
+            this.loadAssets();
+          });
+        }
+      });
       this.load.start();
     } else {
       this.onAssetsLoaded();
@@ -85,9 +97,9 @@ export class DogScene extends Phaser.Scene {
     this.game.events.on("set-hover", (hover: boolean) => {
       if (!this.dog) return;
       if (hover) {
-        this.dog.setTint(0xddeeff);
+        this.dog.setAlpha(0.75);
       } else {
-        this.dog.clearTint();
+        this.dog.setAlpha(1);
       }
     });
   }
@@ -170,7 +182,7 @@ export class DogScene extends Phaser.Scene {
     img.setScale(0.035);
     this.coin = img;
 
-    this.coinTween = this.tweens.add({
+    this.tweens.add({
       targets: img,
       y: targetY,
       duration: 600,

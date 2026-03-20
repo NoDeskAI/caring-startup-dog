@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useDogStore } from "../store/dogStore";
 import { logMood } from "../db";
 import { MOOD_TO_STATE } from "../config/dog-states";

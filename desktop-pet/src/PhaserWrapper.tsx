@@ -1,14 +1,12 @@
 import { useEffect, useRef, useCallback } from "react";
 import Phaser from "phaser";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { currentMonitor } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { DogScene } from "./scenes/DogScene";
 import { useDogStore } from "./store/dogStore";
 import { addCoin, getTotalCoins } from "./db";
 import { triggerPetHead } from "./services/localAnalysis";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import { getBasePath } from "./db";
 
@@ -133,26 +131,39 @@ export function PhaserWrapper() {
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
 
-    const scene = new DogScene();
-    sceneRef.current = scene;
+    let destroyed = false;
 
-    const game = new Phaser.Game({
-      type: Phaser.WEBGL,
-      width: CANVAS_W,
-      height: CANVAS_H,
-      parent: containerRef.current,
-      transparent: true,
-      scene,
-      render: { pixelArt: true },
-      input: { mouse: { preventDefaultWheel: false }, touch: false },
-    });
+    const initGame = () => {
+      if (destroyed || !containerRef.current || gameRef.current) return;
 
-    gameRef.current = game;
+      const scene = new DogScene();
+      sceneRef.current = scene;
+
+      const game = new Phaser.Game({
+        type: Phaser.AUTO,
+        width: CANVAS_W,
+        height: CANVAS_H,
+        parent: containerRef.current,
+        transparent: true,
+        scene,
+        render: { pixelArt: true },
+        input: { mouse: { preventDefaultWheel: false }, touch: false },
+      });
+
+      gameRef.current = game;
+    };
+
+    // Delay Phaser init to give macOS compositing layer time to set up
+    const timer = setTimeout(initGame, 120);
 
     return () => {
-      game.destroy(true);
-      gameRef.current = null;
-      sceneRef.current = null;
+      destroyed = true;
+      clearTimeout(timer);
+      if (gameRef.current) {
+        gameRef.current.destroy(true);
+        gameRef.current = null;
+        sceneRef.current = null;
+      }
     };
   }, []);
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import {} from "react";
 import { useDogStore } from "../store/dogStore";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";

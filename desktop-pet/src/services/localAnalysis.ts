@@ -1,5 +1,5 @@
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import { join } from "@tauri-apps/api/path";
+import { join, homeDir } from "@tauri-apps/api/path";
 import { Command } from "@tauri-apps/plugin-shell";
 import {
   getRecentSnapshots,
@@ -171,7 +171,7 @@ export async function buildLLMContext(): Promise<LLMContext> {
   };
 }
 
-// ── Trigger LLM via OpenClaw ──
+// ── Trigger LLM via Agent (OpenClaw / Nanobot) ──
 
 export async function triggerLLMComfort(ctx: LLMContext): Promise<void> {
   const base = await getBasePath();
@@ -184,24 +184,26 @@ export async function triggerLLMComfort(ctx: LLMContext): Promise<void> {
   };
   await writeTextFile(triggerPath, JSON.stringify(trigger, null, 2));
 
-    const agentMsg = [
-      "按照 caring-startup-dog skill 的操作流程 B 执行。",
-      "读取 ~/.创业狗/user-response.json 中的 llm_context。",
-      "使用 prompts/comfort-response.md 模板生成安慰话语。",
-      "核心视角：狗是创业伙伴，'我们'用于共同经历和休息提议，'你'用于赞美。狗没有独立需求。",
-      "必须提到 work_summary 中的具体事务，飞书优先，编码其次。",
-      "语气自然随意，不要按固定格式输出，语序自由调整，像朋友聊天一样。不说教，不PUA，不用emoji。",
-      "将结果写入 ~/.创业狗/comfort-message.json（格式：{timestamp, comfort_text, choice, ttl_seconds: 15}）。",
-      "然后将 user-response.json 中 processed 设为 true。",
-    ].join(" ");
+  const agentMsg = [
+    "按照 caring-startup-dog skill 的操作流程 B 执行。",
+    "读取 ~/.创业狗/user-response.json 中的 llm_context。",
+    "使用 prompts/comfort-response.md 模板生成话语。",
+    "核心视角：狗是创业伙伴，只负责陪伴、认可、夸奖。",
+    "必须提到 work_summary 中的具体事务，飞书优先，编码其次。",
+    "语气自然随意，像朋友聊天。不说教，不PUA，不用emoji。",
+    "⛔绝对禁止催促休息、喝水、站起来活动、尿尿等任何生活建议。",
+    "将结果写入 ~/.创业狗/comfort-message.json（格式：{timestamp, comfort_text, choice, ttl_seconds: 15}）。",
+    "然后将 user-response.json 中 processed 设为 true。",
+  ].join(" ");
 
-  const cmd = Command.create("exec-sh", [
-    "-c",
-    `export PATH="$HOME/.deskclaw/node/bin:$PATH" && openclaw agent --agent main --message '${agentMsg.replace(/'/g, "'\\''")}'`,
-  ]);
-  cmd.on("error", (err) => console.error("[llm] openclaw error:", err));
+  const kernel = await detectKernel();
+  const prefix = pathPrefix(kernel);
+  const agentCmd = agentCommand(kernel, agentMsg);
+
+  const cmd = Command.create("exec-sh", ["-c", `${prefix} && ${agentCmd}`]);
+  cmd.on("error", (err) => console.error("[llm] agent error:", err));
   cmd.on("close", (data) =>
-    console.log("[llm] openclaw exited:", data.code)
+    console.log(`[llm] ${kernel} agent exited:`, data.code)
   );
   await cmd.spawn();
 }
@@ -243,8 +245,11 @@ export async function readFunPool(): Promise<string[]> {
     const base = await getBasePath();
     const poolPath = await join(base, "fun-pool.json");
     const raw = await readTextFile(poolPath);
-    const arr = JSON.parse(raw);
-    if (Array.isArray(arr) && arr.length > 0) return arr as string[];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as string[];
+    if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+      return parsed.items as string[];
+    }
   } catch { /* file doesn't exist or is invalid */ }
   return [];
 }
@@ -272,7 +277,7 @@ async function runShell(script: string): Promise<{ code: number; stdout: string;
     let stdout = "";
     let stderr = "";
     const cmd = Command.create("exec-sh", ["-c", script]);
-    cmd.on("close", (data) => resolve({ code: data.code, stdout, stderr }));
+    cmd.on("close", (data) => resolve({ code: data.code ?? 1, stdout, stderr }));
     cmd.on("error", (err) => {
       stderr += String(err);
       resolve({ code: 1, stdout, stderr });
@@ -283,10 +288,47 @@ async function runShell(script: string): Promise<{ code: number; stdout: string;
   });
 }
 
-const OC_PATH_PREFIX = 'export PATH="$HOME/.deskclaw/node/bin:$PATH"';
+// ── Kernel Detection (OpenClaw vs Nanobot) ──
+
+type Kernel = "openclaw" | "nanobot";
+let _cachedKernel: Kernel | null = null;
+
+async function detectKernel(): Promise<Kernel> {
+  if (_cachedKernel) return _cachedKernel;
+  const { code } = await runShell('which openclaw 2>/dev/null');
+  _cachedKernel = code === 0 ? "openclaw" : "nanobot";
+  console.log(`[kernel] detected: ${_cachedKernel}`);
+  return _cachedKernel;
+}
+
+function pathPrefix(kernel: Kernel): string {
+  return kernel === "openclaw"
+    ? 'export PATH="$HOME/.deskclaw/node/bin:$PATH"'
+    : 'export PATH="$HOME/.deskclaw/gateway-venv/bin:$PATH"';
+}
+
+function agentCommand(kernel: Kernel, message: string): string {
+  const escaped = message.replace(/'/g, "'\\''");
+  return kernel === "openclaw"
+    ? `openclaw agent --agent main --message '${escaped}'`
+    : `nanobot agent -m '${escaped}'`;
+}
 
 async function listCronJobs(): Promise<CronJob[]> {
-  const { code, stdout } = await runShell(`${OC_PATH_PREFIX} && openclaw cron list --json`);
+  const kernel = await detectKernel();
+  if (kernel === "nanobot") {
+    try {
+      const home = await homeDir();
+      const cronPath = await join(home, ".deskclaw", "nanobot", "cron", "jobs.json");
+      const raw = await readTextFile(cronPath);
+      const data = JSON.parse(raw);
+      return (Array.isArray(data) ? data : data.jobs || []) as CronJob[];
+    } catch {
+      return [];
+    }
+  }
+  const prefix = pathPrefix(kernel);
+  const { code, stdout } = await runShell(`${prefix} && openclaw cron list --json`);
   if (code !== 0) return [];
   try {
     const data = JSON.parse(stdout);
@@ -300,32 +342,22 @@ export async function ensureCron(): Promise<boolean> {
   console.log("[cron-repair] checking cron jobs...");
 
   try {
+    const kernel = await detectKernel();
+    const prefix = pathPrefix(kernel);
     const jobs = await listCronJobs();
-    const dataCollect = jobs.find((j) => j.name.includes("数据采集"));
     const hourlyAnalysis = jobs.find((j) => j.name.includes("完整分析"));
 
-    if (!dataCollect || !hourlyAnalysis) {
-      console.warn("[cron-repair] missing cron jobs", {
-        dataCollect: !!dataCollect,
-        hourlyAnalysis: !!hourlyAnalysis,
-      });
-      const { code } = await runShell(
-        `${OC_PATH_PREFIX} && openclaw agent --agent main --message '请重新注册 caring-startup-dog skill 的两个 cron 任务（每10分钟数据采集 + 每小时完整分析），参考 SKILL.md 的 Cron 配置部分。'`
-      );
+    if (!hourlyAnalysis) {
+      console.warn("[cron-repair] missing hourly analysis cron job");
+      const msg = "请注册 caring-startup-dog skill 的 cron 任务（每小时完整分析），参考 SKILL.md 的 Cron 配置部分。只需要 1 个 cron。";
+      const { code } = await runShell(`${prefix} && ${agentCommand(kernel, msg)}`);
       return code === 0;
     }
 
-    const repairs: Promise<{ code: number; stdout: string; stderr: string }>[] = [];
-
-    if (!dataCollect.enabled) {
-      console.log("[cron-repair] re-enabling data-collect");
-      repairs.push(runShell(`${OC_PATH_PREFIX} && openclaw cron edit ${dataCollect.id} --enable`));
-    }
-    if (!hourlyAnalysis.enabled) {
+    if (!hourlyAnalysis.enabled && kernel === "openclaw") {
       console.log("[cron-repair] re-enabling hourly-analysis");
-      repairs.push(runShell(`${OC_PATH_PREFIX} && openclaw cron edit ${hourlyAnalysis.id} --enable`));
+      await runShell(`${prefix} && openclaw cron edit ${hourlyAnalysis.id} --enable`);
     }
-    if (repairs.length > 0) await Promise.all(repairs);
 
     const isError = hourlyAnalysis.state?.lastRunStatus === "error";
     if (isError) {
@@ -349,7 +381,12 @@ export async function ensureCron(): Promise<boolean> {
       beforeStatusTs = (JSON.parse(raw) as { last_update?: string }).last_update || null;
     } catch { /* noop */ }
 
-    await runShell(`${OC_PATH_PREFIX} && openclaw cron run ${hourlyAnalysis.id}`);
+    if (kernel === "openclaw") {
+      await runShell(`${prefix} && openclaw cron run ${hourlyAnalysis.id}`);
+    } else {
+      const triggerMsg = "立即执行 caring-startup-dog skill 的操作流程 A（完整状态分析）。";
+      await runShell(`${prefix} && ${agentCommand(kernel, triggerMsg)}`);
+    }
 
     const POLL_INTERVAL = 10_000;
     const MAX_POLLS = 40;
