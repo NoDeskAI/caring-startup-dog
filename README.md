@@ -2,7 +2,7 @@
 
 **一只像素狗，陪你创业。**
 
-基于 [DeskClaw](https://deskclaw.me)（OpenClaw 或 NoBot 内核）+ 飞书 + Cursor/Claude Code 数据，驱动一只 macOS 桌面像素宠物狗，用动画和对话反映你的工作状态。自动检测运行环境，无需手动选择内核。
+基于 [DeskClaw](https://deskclaw.me)（OpenClaw 或 Nanobot 内核）+ 飞书 + Cursor/Claude Code 数据，驱动一只 macOS 桌面像素宠物狗，用动画和对话反映你的工作状态。自动检测运行环境，无需手动选择内核。
 
 <p align="center">
   <img src="docs/screenshots/comfort-bubble.png" width="320" />
@@ -145,7 +145,7 @@
 
 ### 前提
 
-- **[DeskClaw](https://deskclaw.me)** 已安装并连接飞书（OpenClaw 或 NoBot 内核均可，Skill 自动检测）
+- **[DeskClaw](https://deskclaw.me)** 已安装并连接飞书（OpenClaw 或 Nanobot 内核均可，Skill 自动检测）
 - macOS (Apple Silicon)
 
 ### 安装 Skill
@@ -155,7 +155,7 @@
 cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 ```
 
-**NoBot 用户：**
+**Nanobot 用户：**
 ```bash
 cp -r skill ~/.deskclaw/nanobot/workspace/skills/caring-startup-dog
 ```
@@ -166,9 +166,9 @@ cp -r skill ~/.deskclaw/nanobot/workspace/skills/caring-startup-dog
 
 > "帮我初始化 caring-startup-dog"
 
-自动完成：创建数据目录 → 安装 Hooks → 创建飞书表 → 配置飞书 UAT（NoBot）→ 配置 Cron → 安装桌面宠物。
+自动完成：创建数据目录 → 安装 Hooks → 创建飞书表 → 配置飞书 UAT（Nanobot）→ 配置 Cron → 安装桌面宠物。
 
-> **NoBot 用户注意**：初始化过程中会引导你完成飞书 OAuth 授权，以启用消息搜索能力。
+> **Nanobot 用户注意**：初始化过程中会引导你完成飞书 OAuth 授权，以启用消息搜索能力。
 
 ### 手动安装桌面宠物
 
@@ -179,7 +179,7 @@ cp -r skill ~/.deskclaw/nanobot/workspace/skills/caring-startup-dog
 ## 项目结构
 
 ```
-├── skill/              # Agent Skill（兼容 OpenClaw / NoBot）
+├── skill/              # Agent Skill（兼容 OpenClaw / Nanobot）
 │   ├── SKILL.md        # Skill 定义与操作流程（双内核自动分支）
 │   ├── prompts/        # LLM Prompt 模板（情绪分析/安慰/狗信/日记）
 │   └── scripts/        # 安装脚本
@@ -193,7 +193,7 @@ cp -r skill ~/.deskclaw/nanobot/workspace/skills/caring-startup-dog
 
 ## 技术栈
 
-- **Skill**: OpenClaw / NoBot（自动检测） + 飞书 API + LLM
+- **Skill**: OpenClaw / Nanobot（自动检测） + 飞书 API + LLM
 - **桌面宠物**: Tauri v2 + React + Phaser 3 + Zustand + SQLite
 - **窗口交互**: cocoa/objc（macOS 原生 API） + setPointerCapture 拖拽 + Rust 全局光标轮询
 - **像素素材**: [Pixel Dogs by Benvictus](https://bfreddyberg.itch.io/pixel-dogs)
