@@ -2,7 +2,7 @@
 
 **一只像素狗，陪你创业。**
 
-基于 [OpenClaw](https://github.com/NoDeskAI/nodeskclaw) + 飞书 + Cursor/Claude Code 数据，驱动一只 macOS 桌面像素宠物狗，用动画和对话反映你的工作状态。
+基于 [OpenClaw](https://github.com/NoDeskAI/nodeskclaw) 或 [Nanobot](https://github.com/NoDeskAI/nanobot) + 飞书 + Cursor/Claude Code 数据，驱动一只 macOS 桌面像素宠物狗，用动画和对话反映你的工作状态。自动检测运行环境，无需手动选择内核。
 
 <p align="center">
   <img src="docs/screenshots/comfort-bubble.png" width="320" />
@@ -96,10 +96,8 @@
 
 | 机制 | 频率 | 说明 |
 |------|------|------|
-| 数据采集 | 每 10 分钟 | 飞书消息计数 + 编码活动统计 + 狗信/日记触发检查 |
-| 完整分析 | 每 1 小时 | LLM 情绪分析 + 自言自语 + fun-pool 刷新 + 金币掉落 |
-| 主动询问 | 每 2 小时 | 弹窗问心情状态 |
-| 健康检测 | 每 15 分钟 | cron 心跳检查，过期自动修复 |
+| 完整分析 | 每 1 小时 | 飞书消息搜索 + LLM 情绪分析 + fun-pool 刷新 + 金币掉落 |
+| 健康检测 | 启动时 | cron 心跳检查，异常自动修复 |
 
 ### 狗的动画
 
@@ -147,22 +145,32 @@
 
 ### 前提
 
-- [OpenClaw](https://github.com/NoDeskAI/nodeskclaw) 已安装并连接飞书
+- **内核二选一**（Skill 会自动检测）：
+  - [OpenClaw](https://github.com/NoDeskAI/nodeskclaw) 已安装并连接飞书，或
+  - [Nanobot](https://github.com/NoDeskAI/nanobot) 已安装并连接飞书
 - macOS (Apple Silicon)
 
 ### 安装 Skill
 
+**OpenClaw 用户：**
 ```bash
 cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 ```
 
+**Nanobot 用户：**
+```bash
+cp -r skill ~/.deskclaw/nanobot/workspace/skills/caring-startup-dog
+```
+
 ### 初始化
 
-告诉你的 OpenClaw：
+告诉你的 Agent：
 
 > "帮我初始化 caring-startup-dog"
 
-自动完成：创建数据目录 → 安装 Hooks → 创建飞书表 → 配置 Cron → 安装桌面宠物。
+自动完成：创建数据目录 → 安装 Hooks → 创建飞书表 → 配置飞书 UAT（Nanobot）→ 配置 Cron → 安装桌面宠物。
+
+> **Nanobot 用户注意**：初始化过程中会引导你完成飞书 OAuth 授权，以启用消息搜索能力。
 
 ### 手动安装桌面宠物
 
@@ -173,8 +181,8 @@ cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 ## 项目结构
 
 ```
-├── skill/              # OpenClaw Skill
-│   ├── SKILL.md        # Skill 定义与操作流程
+├── skill/              # Agent Skill（兼容 OpenClaw / Nanobot）
+│   ├── SKILL.md        # Skill 定义与操作流程（双内核自动分支）
 │   ├── prompts/        # LLM Prompt 模板（情绪分析/安慰/狗信/日记）
 │   └── scripts/        # 安装脚本
 ├── desktop-pet/        # Tauri 桌面宠物源码
@@ -187,8 +195,8 @@ cp -r skill ~/.openclaw/workspace/skills/caring-startup-dog
 
 ## 技术栈
 
-- **Skill**: OpenClaw + 飞书 API + LLM
-- **桌面宠物**: Tauri v2 + React + Phaser 3 (WebGL) + Zustand + SQLite
+- **Skill**: OpenClaw / Nanobot（自动检测） + 飞书 API + LLM
+- **桌面宠物**: Tauri v2 + React + Phaser 3 + Zustand + SQLite
 - **窗口交互**: cocoa/objc（macOS 原生 API） + setPointerCapture 拖拽 + Rust 全局光标轮询
 - **像素素材**: [Pixel Dogs by Benvictus](https://bfreddyberg.itch.io/pixel-dogs)
 - **像素字体**: Zpix（中文） + Silkscreen（英文）
