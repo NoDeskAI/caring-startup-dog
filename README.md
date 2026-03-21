@@ -2,7 +2,7 @@
 
 **一只像素狗，陪你创业。**
 
-基于 [DeskClaw](https://deskclaw.me)（OpenClaw 或 Nanobot 内核）+ 飞书 + Cursor/Claude Code 数据，驱动一只 macOS 桌面像素宠物狗，用动画和对话反映你的工作状态。自动检测运行环境，无需手动选择内核。
+基于 OpenClaw + 飞书 + Cursor/Claude Code 数据，驱动一只 macOS 桌面像素宠物狗，用动画和对话反映你的工作状态。自动检测运行环境，无需手动选择内核。
 
 <p align="center">
   <img src="docs/screenshots/comfort-bubble.png" width="320" />
