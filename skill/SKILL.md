@@ -84,9 +84,12 @@ bash "$(dirname "$0")/../scripts/install-hooks.sh"
   "bitable_table_id": "<table_id>",
   "feishu_user_id": "<user_id>",
   "check_interval_hours": 1,
-  "ask_interval_hours": 2
+  "ask_interval_hours": 2,
+  "weather_city": "Beijing"
 }
 ```
+
+`weather_city` 用于天气预报抓取（英文城市名，如 Beijing、Shanghai、Shenzhen）。初始化时询问用户所在城市并填入。
 
 #### Step 5: 配置 Cron 定时任务
 
@@ -239,7 +242,46 @@ LLM 输出拿到后（或使用降级值后），**依次写入以下文件**。
 }
 ```
 
-**3e. 清理 `~/.创业狗/activity.jsonl`**（保留最近 2 小时的条目）。
+**3e. 抓取天气预报并写入 `~/.创业狗/weather.json`**
+
+从 `config.json` 读取 `weather_city`，使用 wttr.in 免费 API 获取天气数据：
+
+```bash
+curl -s "wttr.in/${CITY}?format=j1&lang=zh"
+```
+
+将返回数据解析为以下格式并写入 `~/.创业狗/weather.json`：
+
+```json
+{
+  "ts": "<当前 ISO 时间>",
+  "city": "<城市中文名，从 API nearest_area 获取>",
+  "current": {
+    "temp": <current_condition.temp_C，整数>,
+    "feelsLike": <current_condition.FeelsLikeC，整数>,
+    "humidity": <current_condition.humidity，整数>,
+    "description": "<current_condition.lang_zh[0].value>",
+    "windSpeed": <current_condition.windspeedKmph 除以 3.6 转 m/s，保留一位小数>
+  },
+  "forecast": [
+    {
+      "time": "<HH:00 格式>",
+      "temp": <hourly.tempC，整数>,
+      "feelsLike": <hourly.FeelsLikeC，整数>,
+      "humidity": <hourly.humidity，整数>,
+      "description": "<hourly.lang_zh[0].value>",
+      "windSpeed": <hourly.windspeedKmph / 3.6，保留一位小数>,
+      "chanceOfRain": <hourly.chanceofrain，整数>
+    }
+  ]
+}
+```
+
+`forecast` 数组取当前时间之后最近的 3 条（从 `weather[0].hourly` 和 `weather[1].hourly` 中按 time 过滤）。
+
+如果 curl 失败，跳过此步骤，不影响后续流程。
+
+**3f. 清理 `~/.创业狗/activity.jsonl`**（保留最近 2 小时的条目）。
 
 ### 阶段四：写入心跳（最后一步，必须执行）
 
@@ -252,6 +294,7 @@ LLM 输出拿到后（或使用降级值后），**依次写入以下文件**。
   "status_written": true,
   "comfort_written": true,
   "funpool_written": true,
+  "weather_written": true,
   "coin_ready_set": true,
   "llm_ok": true
 }

@@ -1,16 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDogStore } from "../store/dogStore";
-import {
-  fetchWeather,
-  weatherIcon,
-  readWeatherConfig,
-} from "../services/weatherService";
+import { fetchWeather, weatherEmoji } from "../services/weatherService";
 import type { WeatherResult } from "../services/weatherService";
-
-function formatHour(unix: number): string {
-  const d = new Date(unix * 1000);
-  return `${String(d.getHours()).padStart(2, "0")}:00`;
-}
 
 export function DailyReport() {
   const visible = useDogStore((s) => s.showDailyReport);
@@ -18,24 +9,14 @@ export function DailyReport() {
 
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [noKey, setNoKey] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     setLoading(true);
-    setNoKey(false);
-
-    (async () => {
-      const cfg = await readWeatherConfig();
-      if (!cfg) {
-        setNoKey(true);
-        setLoading(false);
-        return;
-      }
-      const data = await fetchWeather();
-      setWeather(data);
-      setLoading(false);
-    })();
+    fetchWeather()
+      .then(setWeather)
+      .catch(() => setWeather(null))
+      .finally(() => setLoading(false));
   }, [visible]);
 
   useEffect(() => {
@@ -95,40 +76,20 @@ export function DailyReport() {
           <div style={{ textAlign: "center", padding: 20, opacity: 0.6 }}>
             查询中...
           </div>
-        ) : noKey ? (
+        ) : !weather ? (
           <div
             style={{
               textAlign: "center",
               padding: "16px 8px",
               lineHeight: 1.8,
-              opacity: 0.7,
+              opacity: 0.6,
             }}
           >
-            <div style={{ fontSize: 20, marginBottom: 6 }}>🔑</div>
-            <div>还没配置天气~</div>
-            <div style={{ fontSize: 9, marginTop: 6 }}>
-              在 ~/.创业狗/config.json 中添加：
+            <div style={{ fontSize: 20, marginBottom: 6 }}>🐾</div>
+            <div>还没有天气数据</div>
+            <div style={{ fontSize: 9, marginTop: 4 }}>
+              等下一次 cron 跑完就有了~
             </div>
-            <div
-              style={{
-                fontFamily: "monospace",
-                fontSize: 8,
-                marginTop: 4,
-                padding: "4px 6px",
-                backgroundColor: "var(--pixel-bg-dark)",
-                border: "1px solid var(--pixel-border)",
-                textAlign: "left",
-                lineHeight: 1.6,
-              }}
-            >
-              "openweather_api_key": "你的key"
-              <br />
-              "weather_city": "Beijing"
-            </div>
-          </div>
-        ) : !weather ? (
-          <div style={{ textAlign: "center", padding: 20, opacity: 0.5 }}>
-            天气数据获取失败...
           </div>
         ) : (
           <>
@@ -146,7 +107,7 @@ export function DailyReport() {
                 {weather.city}
               </div>
               <div style={{ fontSize: 24, lineHeight: 1.2 }}>
-                {weatherIcon(weather.current.icon)}
+                {weatherEmoji(weather.current.description)}
               </div>
               <div
                 style={{
@@ -189,9 +150,9 @@ export function DailyReport() {
                   接下来:
                 </div>
                 <div>
-                  {weather.forecast.map((entry) => (
+                  {weather.forecast.map((entry, i) => (
                     <div
-                      key={entry.dt}
+                      key={i}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -208,10 +169,10 @@ export function DailyReport() {
                           fontSize: 10,
                         }}
                       >
-                        {formatHour(entry.dt)}
+                        {entry.time}
                       </span>
                       <span style={{ minWidth: 18, textAlign: "center" }}>
-                        {weatherIcon(entry.icon)}
+                        {weatherEmoji(entry.description)}
                       </span>
                       <span style={{ fontWeight: "bold", minWidth: 28 }}>
                         {entry.temp}°
@@ -227,7 +188,7 @@ export function DailyReport() {
                       >
                         {entry.description}
                       </span>
-                      {entry.pop > 0 && (
+                      {entry.chanceOfRain > 0 && (
                         <span
                           style={{
                             fontSize: 9,
@@ -235,7 +196,7 @@ export function DailyReport() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          🌧{entry.pop}%
+                          🌧{entry.chanceOfRain}%
                         </span>
                       )}
                     </div>
