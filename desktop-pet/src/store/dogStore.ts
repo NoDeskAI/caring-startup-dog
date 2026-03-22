@@ -14,7 +14,6 @@ export interface StatusData {
   alert_level?: string;
   work_summary?: string;
   hover_text?: string;
-  daily_narrative?: string;
   stress_signals?: string[];
   message?: string;
   feishu_ok?: boolean;

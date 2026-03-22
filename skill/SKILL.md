@@ -169,7 +169,6 @@ bash "$(dirname "$0")/../scripts/install-desktop-pet.sh"
   "stress_signals": [],
   "work_summary": "...",
   "hover_text": "...",
-  "daily_narrative": "...",
   "comfort_message": "...",
   "fun_pool": ["...", "...", "...", "...", "..."]
 }
@@ -182,7 +181,6 @@ bash "$(dirname "$0")/../scripts/install-desktop-pet.sh"
   "emotion_label": "neutral",
   "work_summary": null,
   "hover_text": "走走走~",
-  "daily_narrative": null,
   "comfort_message": "走了一会儿~",
   "fun_pool": ["嘿嘿嘿嘿嘿", "刚才偷偷打了个哈欠", "地上有个影子...是我的尾巴", "你知道吗，蜗牛有四个鼻子", "*翻肚皮*"]
 }
@@ -203,7 +201,6 @@ LLM 输出拿到后（或使用降级值后），**依次写入以下文件**。
   "active_hours": <来自阶段一>,
   "work_summary": <来自 LLM>,
   "hover_text": <来自 LLM>,
-  "daily_narrative": <来自 LLM>,
   "feishu_ok": <飞书 API 是否成功>,
   "coin_ready": true
 }

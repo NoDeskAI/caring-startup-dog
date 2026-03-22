@@ -137,7 +137,7 @@
 
 | 位置 | 内容 |
 |------|------|
-| `~/.创业狗/status.json` | OpenClaw cron 输出：消息数、prompt 数、工作摘要、hover_text、daily_narrative、coin_ready |
+| `~/.创业狗/status.json` | OpenClaw cron 输出：消息数、prompt 数、工作摘要、hover_text、coin_ready |
 | `~/.创业狗/comfort-message.json` | OpenClaw 生成的安慰消息 |
 | `~/.创业狗/fun-pool.json` | cron 预生成的 5 条趣味文案（摸摸头用） |
 | `~/.创业狗/daily-schedule.json` | 当日狗信时间表 + 日记推送标记 |

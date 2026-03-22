@@ -297,7 +297,7 @@ export function ContextMenu() {
       </div>
       <MenuItem label="摸摸头" onClick={handlePetHead} disabled={petting} />
       <MenuItem label="在干嘛" onClick={handleWhatDoing} disabled={asking} />
-      <MenuItem label="今天的日记" onClick={handleDailyReport} />
+      <MenuItem label="天气预报" onClick={handleDailyReport} />
       <div
         style={{
           height: 2,
