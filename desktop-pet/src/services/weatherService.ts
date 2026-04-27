@@ -45,6 +45,10 @@ export function weatherEmoji(desc: string): string {
 let _cache: { data: WeatherResult; readAt: number } | null = null;
 const READ_COOLDOWN_MS = 30_000;
 
+export function invalidateWeatherCache(): void {
+  _cache = null;
+}
+
 export async function fetchWeather(): Promise<WeatherResult | null> {
   if (_cache && Date.now() - _cache.readAt < READ_COOLDOWN_MS) {
     return _cache.data;

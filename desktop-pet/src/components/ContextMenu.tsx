@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useDogStore } from "../store/dogStore";
 import { DOG_SKINS } from "../config/dog-states";
-import { triggerPetHead, getRandomFunText, ensureCron } from "../services/localAnalysis";
+import { triggerPetHead, getRandomFunText, ensureCron, invalidateFunPool } from "../services/localAnalysis";
+import { invalidateWeatherCache } from "../services/weatherService";
 import { unlockSkin, getUnlockedSkins, getTotalCoins } from "../db";
 
 type SubMenu = "none" | "skins";
@@ -119,12 +120,23 @@ export function ContextMenu() {
     });
     try {
       const ok = await ensureCron();
-      setComfortMessage({
-        timestamp: new Date().toISOString(),
-        comfort_text: ok ? "连接修复好了！数据开始跑了~" : "好像还是有问题...检查一下 OpenClaw 是不是在运行？",
-        choice: "repair",
-        ttl_seconds: 15,
-      });
+      if (ok) {
+        invalidateFunPool();
+        invalidateWeatherCache();
+        setComfortMessage({
+          timestamp: new Date().toISOString(),
+          comfort_text: "全都更新好了！状态、天气、摸头库都是新鲜的~",
+          choice: "repair",
+          ttl_seconds: 15,
+        });
+      } else {
+        setComfortMessage({
+          timestamp: new Date().toISOString(),
+          comfort_text: "好像还是有问题...检查一下 OpenClaw 是不是在运行？",
+          choice: "repair",
+          ttl_seconds: 15,
+        });
+      }
     } catch {
       setComfortMessage({
         timestamp: new Date().toISOString(),

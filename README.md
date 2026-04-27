@@ -6,16 +6,30 @@
 
 <p align="center">
   <img src="docs/screenshots/comfort-bubble.png" width="320" />
-  <img src="docs/screenshots/coin-drop.png" width="320" />
+  <img src="docs/screenshots/work-status.png" width="320" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/fun-text.png" width="320" />
-  <img src="docs/screenshots/sleeping.png" width="320" />
+  <img src="docs/screenshots/desktop-comfort.png" width="320" />
+  <img src="docs/screenshots/desktop-funtext.png" width="320" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/running-brown.png" width="280" />
-  <img src="docs/screenshots/running-skin.png" width="280" />
-  <img src="docs/screenshots/daily-report.png" width="280" />
+  <img src="docs/screenshots/fun-text.png" width="280" />
+  <img src="docs/screenshots/mood-panel.png" width="280" />
+  <img src="docs/screenshots/sleeping.png" width="280" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/coin-drop.png" width="280" />
+  <img src="docs/screenshots/coin-ready.png" width="280" />
+  <img src="docs/screenshots/hover-status.png" width="280" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/walking-hover.png" width="280" />
+  <img src="docs/screenshots/repair-feedback.png" width="280" />
+  <img src="docs/screenshots/fun-walking.png" width="280" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/running-brown.png" width="320" />
+  <img src="docs/screenshots/running-skin.png" width="320" />
 </p>
 
 ---
@@ -39,7 +53,7 @@
 | | 需求 A：被看见 | 需求 B：被抽离 |
 |---|---|---|
 | **心理机制** | "有人知道我在努力" | "让我喘口气" |
-| **触发** | 右键 → 在干嘛 / 今天的日记 / cron 自言自语 | 右键 → 摸摸头 |
+| **触发** | 右键 → 在干嘛 / 天气预报 / cron 自言自语 | 右键 → 摸摸头 |
 | **内容** | 基于真实工作数据的伙伴式反馈 | 与工作完全无关的有趣短文本 |
 
 "摸狗头"本身就暗示了一个心理模型：你在跟一只狗玩，不是在听工作周报。真正的狗被摸头会翻肚皮、甩尾巴、叼个什么东西给你看 —— 纯粹的微笑瞬间。
@@ -65,7 +79,7 @@
 | **左键点击** | 心情面板（1-5 档），记录到本地数据库 |
 | **右键 → 摸摸头** | 从预生成 fun-pool 随机取一条趣味文案，零延迟（需求 B） |
 | **右键 → 在干嘛** | 调用 LLM 生成基于真实工作内容的伙伴式反馈（需求 A） |
-| **右键 → 今天的日记** | 当天叙事回顾 + 心情时间线 |
+| **右键 → 天气预报** | 当前天气 + 未来 3 小时预报 |
 | **右键 → 换皮肤** | 10 款像素狗皮肤，hover 预览锁定皮肤 |
 | **右键 → 修复连接** | 手动触发 cron 健康检查与修复 |
 | **悬停** | 显示 LLM 预生成的状态描述 + 连接指示灯 |

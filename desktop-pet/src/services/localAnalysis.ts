@@ -254,10 +254,27 @@ export async function readFunPool(): Promise<string[]> {
   return [];
 }
 
+const _recentFun: string[] = [];
+const RECENT_MAX = 5;
+
+export function invalidateFunPool(): void {
+  _recentFun.length = 0;
+}
+
 export async function getRandomFunText(): Promise<string> {
   const pool = await readFunPool();
   const source = pool.length > 0 ? pool : FALLBACK_FUN_TEXTS;
-  return source[Math.floor(Math.random() * source.length)];
+
+  let candidates = source.filter((t) => !_recentFun.includes(t));
+  if (candidates.length === 0) {
+    _recentFun.length = 0;
+    candidates = source;
+  }
+
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  _recentFun.push(pick);
+  if (_recentFun.length > RECENT_MAX) _recentFun.shift();
+  return pick;
 }
 
 // ── Cron Verification ──
